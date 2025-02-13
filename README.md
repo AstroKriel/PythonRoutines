@@ -1,1 +1,1 @@
-# Sindri
+# Sindri (analysis routines + pipelines)
