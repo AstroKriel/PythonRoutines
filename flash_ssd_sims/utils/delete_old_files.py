@@ -1,10 +1,11 @@
-import os, sys, math
+import os, sys
 
 
 ## ###############################################################
 ## GLOBAL PARAMETERS
 ## ###############################################################
 BOOL_VERBOSE = False
+
 
 ## ###############################################################
 ## HELPER FUNCTION
@@ -25,14 +26,27 @@ def processLine(line_index, line):
   if any([
       elem in filepath
       for elem in [
-        ".sh", ".out", ".png", ".pdf", ".o1", ".lock"
+        ".sh",
+        ".out",
+        ".png",
+        ".pdf",
+        ".o1",
+        ".lock"
       ]
     ]):
     return deleteFile(filepath, line)
   elif any([
       elem in filepath
       for elem in [
-        "flash", ".dat", ".log", "driving.par", "driving_history.txt", "_chk_", ".json", ".h5", ".code-workspace",
+        "flash",
+        ".dat",
+        ".log",
+        "driving.par",
+        "driving_history.txt",
+        "_chk_",
+        ".json",
+        ".h5",
+        ".code-workspace",
       ]
     ]):
     return readFile(filepath, line)

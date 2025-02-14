@@ -33,9 +33,7 @@ def createSubFolders(filepath):
   Re = dict_sim_inputs["Re"]
   Rm = dict_sim_inputs["Rm"]
   Pm = dict_sim_inputs["Pm"]
-  if not((Re > 750) or (Rm > 750)): return
-  if BOOL_DEBUG: print("Directory doesn't exist:", filepath)
-  else: WWFnF.createDirectory(filepath)
+  WWFnF.createDirectory(filepath)
 
 
 ## ###############################################################

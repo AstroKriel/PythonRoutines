@@ -16,11 +16,11 @@ from TheUsefulModule import WWTerminal, WWFnF, WWObjs
 ## ###############################################################
 BOOL_DEBUG_MODE  = 1
 
-LIST_BASE_PATHS    = [ "/scratch/ek9/nk7952/" ]
-LIST_SUITE_FOLDERS = [ "Re50", "Re250", "Re500", "Re750", "Rm1000", "Rm3000" ]
-LIST_MACH_FOLDERS  = [ "Mach0.2", "Mach5" ]
-LIST_SIM_FOLDERS   = [ "Pm1", "Pm2", "Pm5", "Pm10", "Pm20", "Pm40", "Pm50", "Pm60", "Pm125" ]
-LIST_RES_FOLDERS   = [ "576" ]
+LIST_BASE_PATHS    = [  ]
+LIST_SUITE_FOLDERS = [  ]
+LIST_MACH_FOLDERS  = [  ]
+LIST_SIM_FOLDERS   = [  ]
+LIST_RES_FOLDERS   = [  ]
 
 LIST_SIM_NAMES     = [ ]
 

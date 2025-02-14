@@ -17,18 +17,10 @@ from TheFlashModule import FileNames, FlashData
 BOOL_DEBUG_MODE = 1
 
 LIST_BASE_PATHS = [ "/scratch/jh2/nk7952/" ]
-
-# # # ## specific simulations to check
-# LIST_SUITE_FOLDERS = [ "Rm3000" ]
-# LIST_MACH_FOLDERS  = [ "Mach5" ]
-# LIST_SIM_FOLDERS   = [ "Pm1" ]
-LIST_RES_FOLDERS   = [ "576" ]
-
-## full list of simulations
 LIST_SUITE_FOLDERS = [ "Re50", "Re250", "Re500", "Re750", "Rm3000" ]
 LIST_MACH_FOLDERS  = [ "Mach0.2", "Mach5" ]
 LIST_SIM_FOLDERS   = [ "Pm1", "Pm2", "Pm5", "Pm10", "Pm20", "Pm40", "Pm50", "Pm60", "Pm125" ]
-# LIST_RES_FOLDERS   = [ "18", "36", "72", "144", "288", "576" ]
+LIST_RES_FOLDERS   = [ "18", "36", "72", "144", "288", "576" ]
 
 
 ## ###############################################################
@@ -119,7 +111,7 @@ class ReorganiseSimFolder():
   def _checkIfAnyFilestNeedToBeMoved(self):
     count_plt_in_sim_folder,   _ = countFiles(self.directory_sim, filename_starts_with="Turb_hdf5_plt_cnt_", filename_not_contains="specr")
     count_spect_in_plt_folder, _ = countFiles(self.directory_plt, filename_starts_with="Turb_hdf5_plt_cnt_", filename_contains="spect")
-    if count_plt_in_sim_folder > 0: print(f"\t> There are {count_plt_in_sim_folder} plt-files that need to be moved from the sim- to plt-folder")
+    if count_plt_in_sim_folder   > 0: print(f"\t> There are {count_plt_in_sim_folder} plt-files that need to be moved from the sim- to plt-folder")
     if count_spect_in_plt_folder > 0: print(f"\t> There are {count_spect_in_plt_folder} spect-files that need to be moved from the plt- to spect-folder")
     return (count_plt_in_sim_folder + count_spect_in_plt_folder) > 0
 
