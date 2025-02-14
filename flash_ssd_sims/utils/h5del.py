@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 ## ###############################################################
 ## MODULES
 ## ###############################################################
@@ -15,7 +13,7 @@ def helpMessage():
 This program deletes one or more datasets from a HDF5 file.
 
 Usage:
-    h5del.py <hdf5 filename> <dataset1> [<dataset2> <dataset3> ...]
+    python3 h5del.py <hdf5 filename> <dataset1> [<dataset2> <dataset3> ...]
 
 Arguments:
     <hdf5 filename>   Name of the HDF5 file to modify
