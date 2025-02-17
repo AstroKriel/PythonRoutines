@@ -4,8 +4,8 @@
 import sys
 
 ## load user defined modules
-from TheFlashModule import FileNames, FlashData, JobRunSim
-from TheUsefulModule import WWTerminal, WWFnF, WWObjs
+from Loki.TheFlashModule import FileNames, FlashData, JobRunSim
+from Loki.TheUsefulModule import WWTerminal, WWFnF, WWObjs
 
 
 ## ###############################################################

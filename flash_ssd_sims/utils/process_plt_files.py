@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 
 ## load new user defined modules
-from TheUsefulModule import WWArgparse, WWFnF, WWTerminal
+from Loki.TheUsefulModule import WWArgparse, WWFnF, WWTerminal
 
 
 ## ###############################################################

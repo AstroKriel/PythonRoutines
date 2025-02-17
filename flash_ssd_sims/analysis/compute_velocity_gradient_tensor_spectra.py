@@ -14,9 +14,9 @@ import matplotlib.pyplot as plt
 
 from aux_funcs import derived_var_funcs, power_spectra_funcs
 
-from TheFlashModule import LoadData, FlashData, FileNames
-from TheUsefulModule import WWFnF, WWArgparse, WWTerminal, WWLists
-from ThePlottingModule import PlotFuncs
+from Loki.TheFlashModule import LoadData, FlashData, FileNames
+from Loki.TheUsefulModule import WWFnF, WWArgparse, WWTerminal, WWLists
+from Loki.ThePlottingModule import PlotFuncs
 
 
 ## ###############################################################

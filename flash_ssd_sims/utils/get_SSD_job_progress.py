@@ -7,8 +7,8 @@ import numpy as np
 from datetime import datetime
 
 ## load user defined modules
-from TheFlashModule import FileNames, FlashData, LoadData
-from TheUsefulModule import WWFnF
+from Loki.TheFlashModule import FileNames, FlashData, LoadData
+from Loki.TheUsefulModule import WWFnF
 
 
 ## ###############################################################

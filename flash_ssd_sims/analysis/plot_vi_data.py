@@ -15,9 +15,9 @@ os.environ["MPLCONFIGDIR"] = tempfile.mkdtemp()
 import matplotlib.pyplot as plt
 
 ## load user defined modules
-from TheFlashModule import FlashData, LoadData
-from TheUsefulModule import WWFnF, WWArgparse, WWLists
-from ThePlottingModule import PlotFuncs
+from Loki.TheFlashModule import FlashData, LoadData
+from Loki.TheUsefulModule import WWFnF, WWArgparse, WWLists
+from Loki.ThePlottingModule import PlotFuncs
 
 
 ## ###############################################################
@@ -34,14 +34,8 @@ BOOL_MPROC = 1
 LIST_BASE_PATHS    = [ "/scratch/jh2/nk7952/" ]
 LIST_SUITE_FOLDERS = [ "Re500" ]
 LIST_MACH_FOLDERS  = [ "Mach0.2", "Mach0.5", "Mach1", "Mach2", "Mach5", "Mach10" ]
-LIST_SIM_FOLDERS   = [ "Pm1", "Pm5" ]
-# LIST_RES_FOLDERS   = [ "288" ]
-LIST_RES_FOLDERS   = [
-  "288"
-  if (v_index == 1) else
-  f"288v{v_index}"
-  for v_index in range(1, 10)
-]
+LIST_SIM_FOLDERS   = [ "Pm1" ]
+LIST_RES_FOLDERS   = [ "288" ]
 LIST_SIM_NAMES     = [  ]
 
 

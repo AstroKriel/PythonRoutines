@@ -5,8 +5,8 @@ import sys
 import numpy as np
 
 ## load user defined modules
-from TheUsefulModule import WWFnF, WWTerminal
-from TheFlashModule import FileNames, FlashData
+from Loki.TheUsefulModule import WWFnF, WWTerminal
+from Loki.TheFlashModule import FileNames, FlashData
 
 
 ## ###############################################################

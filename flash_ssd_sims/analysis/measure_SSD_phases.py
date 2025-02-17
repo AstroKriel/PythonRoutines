@@ -14,10 +14,10 @@ os.environ["MPLCONFIGDIR"] = tempfile.mkdtemp()
 import matplotlib.pyplot as plt
 
 ## load user defined modules
-from TheFlashModule import FlashData, LoadData, FileNames
-from TheUsefulModule import WWFnF, WWObjs, WWArgparse
-from ThePlottingModule import PlotFuncs
-from TheFittingModule import FitFuncs
+from Loki.TheFlashModule import FlashData, LoadData, FileNames
+from Loki.TheUsefulModule import WWFnF, WWObjs, WWArgparse
+from Loki.ThePlottingModule import PlotFuncs
+from Loki.TheFittingModule import FitFuncs
 
 
 ## ###############################################################

@@ -5,8 +5,8 @@ import sys, functools
 import xarray as xr
 
 ## load user defined modules
-from TheFlashModule import LoadData, FlashData, FileNames
-from TheUsefulModule import WWFnF, WWArgparse, WWTerminal
+from Loki.TheFlashModule import LoadData, FlashData, FileNames
+from Loki.TheUsefulModule import WWFnF, WWArgparse, WWTerminal
 
 
 ## ###############################################################

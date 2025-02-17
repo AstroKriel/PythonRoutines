@@ -9,11 +9,11 @@ from scipy import stats
 from filelock import FileLock
 
 ## load user defined modules
-from TheFlashModule import LoadData, FileNames
-from TheUsefulModule import WWArgparse, WWFnF, WWLists, WWTerminal, WWObjs
-from TheFittingModule import FitFuncs
-from TheAnalysisModule import WWFields, StatsStuff
-from ThePlottingModule import PlotFuncs
+from Loki.TheFlashModule import LoadData, FileNames
+from Loki.TheUsefulModule import WWArgparse, WWFnF, WWLists, WWTerminal, WWObjs
+from Loki.TheFittingModule import FitFuncs
+from Loki.TheAnalysisModule import WWFields, StatsStuff
+from Loki.ThePlottingModule import PlotFuncs
 
 
 ## ###############################################################

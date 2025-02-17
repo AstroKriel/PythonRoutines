@@ -15,11 +15,11 @@ import matplotlib.pyplot as plt
 from plot_vi_data import PlotTurbData
 
 ## load user defined modules
-from TheFlashModule import FlashData, FileNames
-from TheUsefulModule import WWFnF, WWArgparse, WWLists, WWObjs
-from TheFittingModule import FitMHDScales, FitFuncs
-from TheAnalysisModule import WWSpectra
-from ThePlottingModule import PlotFuncs
+from Loki.TheFlashModule import FlashData, FileNames
+from Loki.TheUsefulModule import WWFnF, WWArgparse, WWLists, WWObjs
+from Loki.TheFittingModule import FitMHDScales, FitFuncs
+from Loki.TheAnalysisModule import WWSpectra
+from Loki.ThePlottingModule import PlotFuncs
 
 
 ## ###############################################################

@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 
 from aux_funcs import power_spectra_funcs
 
-from TheFlashModule import LoadData, FlashData, FileNames
-from TheUsefulModule import WWFnF, WWArgparse, WWTerminal, WWLists
-from TheAnalysisModule import WWFields
-from ThePlottingModule import PlotFuncs
+from Loki.TheFlashModule import LoadData, FlashData, FileNames
+from Loki.TheUsefulModule import WWFnF, WWArgparse, WWTerminal, WWLists
+from Loki.TheAnalysisModule import WWFields
+from Loki.ThePlottingModule import PlotFuncs
 
 
 ## ###############################################################

@@ -2,8 +2,8 @@
 ## MODULES
 ## ###############################################################
 import os, sys, h5py
+from Loki.TheUsefulModule import WWTerminal
 
-from TheUsefulModule import WWTerminal
 
 ## ###############################################################
 ## HELPER FUNCTIONS
@@ -51,6 +51,7 @@ def h5del(filename, list_dsets, directory):
     _runCommand(f"h5repack -i {filename} -o {filename}_tmp")
     _runCommand(f"mv {filename}_tmp {filename}")
 
+
 ## ###############################################################
 ## MAIN PROGRAM
 ## ###############################################################
@@ -64,11 +65,13 @@ def main():
   list_dsets = sys.argv[2:]
   h5del(filename, list_dsets, os.getcwd())
 
+
 ## ###############################################################
 ## PROGRAM ENTRY POINT
 ## ###############################################################
 if __name__ == "__main__":
   main()
   sys.exit(0)
+
 
 ## END OF PROGRAM

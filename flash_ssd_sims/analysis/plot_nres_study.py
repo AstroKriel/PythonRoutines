@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
 ## load user defined modules
-from TheFlashModule import FlashData, FileNames
-from TheUsefulModule import WWFnF, WWObjs
-from TheFittingModule import UserModels
-from ThePlottingModule import PlotFuncs
+from Loki.TheFlashModule import FlashData, FileNames
+from Loki.TheUsefulModule import WWFnF, WWObjs
+from Loki.TheFittingModule import UserModels
+from Loki.ThePlottingModule import PlotFuncs
 
 
 ## ###############################################################

@@ -5,8 +5,8 @@ import sys, shutil
 import numpy as np
 
 ## load user defined modules
-from TheFlashModule import FileNames, FlashData, JobRunSim, LoadData
-from TheUsefulModule import WWTerminal, WWFnF, WWArgparse, WWObjs
+from Loki.TheFlashModule import FileNames, FlashData, JobRunSim, LoadData
+from Loki.TheUsefulModule import WWTerminal, WWFnF, WWArgparse, WWObjs
 
 
 ## ###############################################################
