@@ -7,3 +7,6 @@
 [submodule "Vegtamr"]
 	path = Vegtamr
 	url = git@github.com:AstroKriel/LineIntegralConvolutions.git
+[submodule "Bifrost"]
+	path = Bifrost
+	url = git@github.com:AstroKriel/HDF5DataManager.git
