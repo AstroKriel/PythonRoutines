@@ -1,6 +1,3 @@
-[submodule "Loki"]
-	path = Loki
-	url = git@github.com:AstroKriel/Loki.git
 [submodule "Thor"]
 	path = Thor
 	url = git@github.com:AstroKriel/Thor.git
@@ -10,3 +7,6 @@
 [submodule "Bifrost"]
 	path = Bifrost
 	url = git@github.com:AstroKriel/HDF5DataManager.git
+[submodule "Loki"]
+	path = Loki
+	url = git@github.com:AstroKriel/PythonTools.git
