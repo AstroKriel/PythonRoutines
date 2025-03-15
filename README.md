@@ -1,1 +1,1 @@
-# Sindri (analysis routines + pipelines)
+# Routines for doing science
