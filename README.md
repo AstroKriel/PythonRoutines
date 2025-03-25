@@ -1,1 +1,1 @@
-# Routines for doing science
+# Routines for computing interesting plasma statistics
