@@ -1,0 +1,12 @@
+[submodule "Bifrost"]
+	path = Bifrost
+	url = git@github.com:AstroKriel/HDF5DataManager.git
+[submodule "Loki"]
+	path = Loki
+	url = git@github.com:AstroKriel/PythonTools.git
+[submodule "Thor"]
+	path = Thor
+	url = git@github.com:AstroKriel/JuliaTools.git
+[submodule "Vegtamr"]
+	path = Vegtamr
+	url = git@github.com:AstroKriel/LineIntegralConvolution.git
