@@ -1,0 +1,24 @@
+[project]
+name = "sindri"
+version = "0.1.0"
+description = "sindri (science routines) package"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "loki",
+  "bifrost",
+  "vegtamr",
+]
+
+[tool.uv.sources]
+loki = { path = "loki" }
+bifrost = { path = "bifrost" }
+vegtamr = { path = "vegtamr" }
+
+[tool.uv.workspace]
+members = [
+  "ww_flash/ssd_sims/setup",
+  "ww_flash/ssd_sims/process",
+  "ww_flash/ssd_sims/plot",
+]
+
