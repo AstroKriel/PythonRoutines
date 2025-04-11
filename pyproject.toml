@@ -5,13 +5,13 @@ description = "sindri (science routines) package"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "jormungandr",
+  "jormi",
   "bifrost",
   "vegtamr",
 ]
 
 [tool.uv.sources]
-jormungandr = { path = "jormungandr" }
+jormi = { path = "jormi" }
 bifrost = { path = "bifrost" }
 vegtamr = { path = "vegtamr" }
 
