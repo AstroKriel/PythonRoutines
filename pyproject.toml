@@ -15,10 +15,3 @@ loki = { path = "loki" }
 bifrost = { path = "bifrost" }
 vegtamr = { path = "vegtamr" }
 
-[tool.uv.workspace]
-members = [
-  "ww_flash/ssd_sims/setup",
-  "ww_flash/ssd_sims/process",
-  "ww_flash/ssd_sims/plot",
-]
-
