@@ -2,7 +2,7 @@
 	path = bifrost
 	url = git@github.com:AstroKriel/HDF5DataManager.git
 [submodule "Loki"]
-	path = loki
+	path = jormungandr
 	url = git@github.com:AstroKriel/PythonTools.git
 [submodule "Thor"]
 	path = thor
