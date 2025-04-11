@@ -250,9 +250,9 @@ wheels = [
 ]
 
 [[package]]
-name = "loki"
+name = "jormungandr"
 version = "0.1.0"
-source = { directory = "loki" }
+source = { directory = "jormungandr" }
 dependencies = [
     { name = "cmasher" },
     { name = "h5py" },
@@ -555,14 +555,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "bifrost" },
-    { name = "loki" },
+    { name = "jormungandr" },
     { name = "vegtamr" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "bifrost", directory = "bifrost" },
-    { name = "loki", directory = "loki" },
+    { name = "jormungandr", directory = "jormungandr" },
     { name = "vegtamr", directory = "vegtamr" },
 ]
 
