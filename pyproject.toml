@@ -1,7 +1,7 @@
 [project]
 name = "sindri"
 version = "0.1.0"
-description = "sindri (science routines) package"
+description = "sindri: routines for doing science"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

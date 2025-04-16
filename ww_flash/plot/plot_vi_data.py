@@ -1,9 +1,15 @@
+## ###############################################################
+## DEPENDANCIES
+## ###############################################################
 import sys
 import numpy
 from jormi.ww_io import flash_data
 from jormi.ww_plots import plot_manager
 
 
+## ###############################################################
+## HELPER FUNCTIONS
+## ###############################################################
 def compute_log10(data):
   log10_data = numpy.full_like(data, numpy.nan, dtype=float)
   valid_mask = data > 0
@@ -11,6 +17,9 @@ def compute_log10(data):
   return log10_data
 
 
+## ###############################################################
+## OPERATOR CLASS
+## ###############################################################
 class PlotVIData():
   def __init__(self, directory):
     self.directory = directory
@@ -23,6 +32,7 @@ class PlotVIData():
     plot_manager.save_figure(fig, "demo_vi_plot.png")
 
   def _load_data(self):
+    flash_data.read_vi_data(directory=self.directory, print_header=True)
     self.time, self.mach_number = flash_data.read_vi_data(directory=self.directory, dataset_name="mach")
     _, self.kinetic_energy  = flash_data.read_vi_data(directory=self.directory, dataset_name="kin")
     _, self.magnetic_energy = flash_data.read_vi_data(directory=self.directory, dataset_name="mag")
@@ -60,12 +70,19 @@ class PlotVIData():
     axs[1].legend(loc="lower right", fontsize=18)
     axs[2].axhline(y=0.0, color="black", ls="--", lw=1.0, zorder=5)
 
+
+## ###############################################################
+## MAIN PROGRAM
+## ###############################################################
 def main():
   directory = "/scratch/jh2/nk7952/Re1500/Mach0.5/Pm1/576"
   routine = PlotVIData(directory)
   routine.run()
 
 
+## ###############################################################
+## SCRIPT ENTRY POINT
+## ###############################################################
 if __name__ == "__main__":
   main()
   sys.exit(0)
