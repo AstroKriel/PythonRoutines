@@ -2,6 +2,6 @@
 **/__pycache__
 **.png
 
-# ignore the symlinks we created
-PowerSpectra # -> loki
-CorrelationFunctions # -> thor
+# ignore the symlinks we created for our Julia modules
+PowerSpectra
+CorrelationFunctions
