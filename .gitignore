@@ -1,2 +1,7 @@
+# ignore extraneous code-products
 **/__pycache__
 **.png
+
+# ignore the symlinks we created
+PowerSpectra # -> loki
+CorrelationFunctions # -> thor
