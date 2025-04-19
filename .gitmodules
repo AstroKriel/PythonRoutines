@@ -1,15 +1,18 @@
-[submodule "jormi"]
-	path = jormi
-	url = git@github.com:AstroKriel/PythonTools.git
-[submodule "Thor"]
-	path = thor
-	url = git@github.com:AstroKriel/JuliaTools.git
-[submodule "Vegtamr"]
-	path = vegtamr
-	url = git@github.com:AstroKriel/LineIntegralConvolution.git
-[submodule "loki"]
-	path = loki
-	url = git@github.com:AstroKriel/PowerSpectra.git
 [submodule "bifrost"]
 	path = bifrost
 	url = git@github.com:AstroKriel/HDF5DataManager.git
+[submodule "jormi"]
+	path = jormi
+	url = git@github.com:AstroKriel/PythonTools.git
+[submodule "thor"]
+	path = thor
+	url = git@github.com:AstroKriel/JuliaTools.git
+[submodule "loki"]
+	path = loki
+	url = git@github.com:AstroKriel/PowerSpectra.git
+[submodule "vegtamr"]
+	path = vegtamr
+	url = git@github.com:AstroKriel/LineIntegralConvolution.git
+[submodule "valkyrja"]
+	path = valkyrja
+	url = git@github.com:AstroKriel/EnergyTransfer.git
