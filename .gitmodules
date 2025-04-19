@@ -13,3 +13,6 @@
 [submodule "loki"]
 	path = loki
 	url = git@github.com:AstroKriel/PowerSpectra.git
+[submodule "valkyrja"]
+	path = valkyrja
+	url = git@github.com:AstroKriel/CorrelationFunctions.git
