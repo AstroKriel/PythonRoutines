@@ -1,0 +1,21 @@
+[project]
+name = "jormi"
+version = "0.1.0"
+description = "jormi (jormungandr): a utility python library"
+readme = "README.md"
+authors = [
+    { name = "Neco Kriel", email = "necokriel@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "cmasher>=1.9.2",
+    "h5py>=3.13.0",
+    "matplotlib>=3.10.1",
+    "mpi4py>=4.0.3",
+    "numpy>=2.2.4",
+    "scipy>=1.15.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

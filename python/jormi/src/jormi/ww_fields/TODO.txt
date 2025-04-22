@@ -1,0 +1,5 @@
+Things to do:
+- helmholtz decomposition
+- test field generation
+- test curvature stats
+- test power spectra
