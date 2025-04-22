@@ -1,8 +1,6 @@
-# ignore extraneous code-products
-**/__pycache__
 **.png
+**.pdf
 
-# ignore the symlinks we created for our Julia modules
-PowerSpectra
-EnergyTransfer
-CorrelationFunctions
+**.csv
+**.json
+**.h5
