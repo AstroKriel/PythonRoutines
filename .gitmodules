@@ -16,3 +16,21 @@
 [submodule "vegtamr"]
 	path = vegtamr
 	url = git@github.com:AstroKriel/LineIntegralConvolution.git
+[submodule "python/julia/loki"]
+	path = python/julia/loki
+	url = git@github.com:AstroKriel/PowerSpectra.git
+[submodule "python/julia/valkyrja"]
+	path = python/julia/valkyrja
+	url = git@github.com:AstroKriel/EnergyTransfer.git
+[submodule "python/julia/thor"]
+	path = python/julia/thor
+	url = git@github.com:AstroKriel/JuliaTools.git
+[submodule "python/python/bifrost"]
+	path = python/python/bifrost
+	url = git@github.com:AstroKriel/HDF5DataManager.git
+[submodule "python/python/jormi"]
+	path = python/python/jormi
+	url = git@github.com:AstroKriel/PythonTools.git
+[submodule "python/python/vegtamr"]
+	path = python/python/vegtamr
+	url = git@github.com:AstroKriel/LineIntegralConvolution.git
