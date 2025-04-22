@@ -10,9 +10,9 @@
 [submodule "loki"]
 	path = loki
 	url = git@github.com:AstroKriel/PowerSpectra.git
-[submodule "vegtamr"]
-	path = vegtamr
-	url = git@github.com:AstroKriel/LineIntegralConvolution.git
 [submodule "valkyrja"]
 	path = valkyrja
 	url = git@github.com:AstroKriel/EnergyTransfer.git
+[submodule "vegtamr"]
+	path = vegtamr
+	url = git@github.com:AstroKriel/LineIntegralConvolution.git
