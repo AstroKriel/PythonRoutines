@@ -1,4 +1,0 @@
-Things to do:
-- interpolation
-- fitting linear and exponential models
-
