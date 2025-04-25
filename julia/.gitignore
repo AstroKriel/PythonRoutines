@@ -1,4 +1,5 @@
 # ignore the symlinks we created for our Julia modules
+JuliaTools
 PowerSpectra
 EnergyTransfer
 CorrelationFunctions

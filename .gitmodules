@@ -16,3 +16,6 @@
 [submodule "python/vegtamr"]
 	path = python/vegtamr
 	url = git@github.com:AstroKriel/LineIntegralConvolution.git
+[submodule "julia/frigg"]
+	path = julia/frigg
+	url = git@github.com:AstroKriel/JuliaTools.git

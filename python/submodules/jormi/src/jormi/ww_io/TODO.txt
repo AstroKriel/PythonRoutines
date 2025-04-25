@@ -1,0 +1,3 @@
+Things to do:
+- test hdf5 IO
+- add try+catch for filtering a file based on part of its name being a value

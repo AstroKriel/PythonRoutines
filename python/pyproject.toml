@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-jormi = { path = "jormi" }
-bifrost = { path = "bifrost" }
-vegtamr = { path = "vegtamr" }
+jormi = { path = "submodules/jormi" }
+bifrost = { path = "submodules/bifrost" }
+vegtamr = { path = "submodules/vegtamr" }
 
