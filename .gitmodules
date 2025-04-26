@@ -8,13 +8,13 @@
 	path = julia/thor
 	url = git@github.com:AstroKriel/JuliaTools.git
 [submodule "python/bifrost"]
-	path = python/bifrost
+	path = python/submodules/bifrost
 	url = git@github.com:AstroKriel/HDF5DataManager.git
 [submodule "python/jormi"]
-	path = python/jormi
+	path = python/submodules/jormi
 	url = git@github.com:AstroKriel/PythonTools.git
 [submodule "python/vegtamr"]
-	path = python/vegtamr
+	path = python/submodules/vegtamr
 	url = git@github.com:AstroKriel/LineIntegralConvolution.git
 [submodule "julia/frigg"]
 	path = julia/frigg
