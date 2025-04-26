@@ -1,6 +1,0 @@
-include README.md
-include LICENSE
-
-recursive-include src/Vegtamr *.py
-recursive-include playground *
-recursive-include gallery *
