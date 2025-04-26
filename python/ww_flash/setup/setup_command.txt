@@ -1,4 +1,3 @@
-## dynamo setup (non-ideal MHD equations)
 ./setup StirFromFile
   -3d -auto -objdir=objStirFromFile/
   -nxb=36 -nyb=36 -nzb=48

@@ -3,7 +3,7 @@
 ## ###############################################################
 import sys
 import numpy
-from jormi.ww_io import flash_data
+from jormi.ww_io import argparse, io_manager, flash_data
 from jormi.ww_plots import plot_manager
 
 
@@ -29,7 +29,10 @@ class PlotVIData():
     self._load_data()
     self._plot_data(axs)
     self._label_plot(axs)
-    plot_manager.save_figure(fig, "demo_vi_plot.png")
+    script_directory = io_manager.get_caller_directory()
+    fig_name = "demo_vi_plot.png"
+    fig_file_path = io_manager.combine_file_path_parts([ script_directory, fig_name ])
+    plot_manager.save_figure(fig, fig_file_path)
 
   def _load_data(self):
     flash_data.read_vi_data(directory=self.directory, print_header=True)
