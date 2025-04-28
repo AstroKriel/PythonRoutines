@@ -20,5 +20,5 @@
 	path = julia/frigg
 	url = git@github.com:AstroKriel/JuliaTools.git
 [submodule "python/ww_flash"]
-	path = python/ww_flash
+	path = python/ww_flash_sims
 	url = git@github.com:AstroKriel/WWFlashSims.git
