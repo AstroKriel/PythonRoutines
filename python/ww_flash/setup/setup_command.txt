@@ -1,4 +1,0 @@
-./setup StirFromFile
-  -3d -auto -objdir=objStirFromFile/
-  -nxb=36 -nyb=36 -nzb=48
-  +ug +bouchut_isothermal_soundspeedone +parallelIO +hybrid_precision +resistivity +viscosity +stir_ics
