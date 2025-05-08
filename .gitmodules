@@ -22,3 +22,9 @@
 [submodule "python/ww_flash"]
 	path = python/ww_flash_sims
 	url = git@github.com:AstroKriel/WWFlashSims.git
+[submodule "python/ww_arepo_sims"]
+	path = python/ww_arepo_sims
+	url = git@github.com:AstroKriel/WWArepoSims.git
+[submodule "python/ww_quokka_sims"]
+	path = python/ww_quokka_sims
+	url = git@github.com:AstroKriel/WWQuokkaSims.git
