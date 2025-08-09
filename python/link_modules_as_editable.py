@@ -107,8 +107,7 @@ def main():
   for module_name in selected_modules:
     source_dir = SUBMODULES[module_name].resolve()
     if source_dir == target_dir:
-      print(f"Error: Cannot link module `{module_name}` into itself (`target_dir == submodule`)")
-      sys.exit(1)
+      print(f"Warning: Link module `{module_name}` into itself (`target_dir == submodule`)")
   ## link all requested modules
   for module_name in selected_modules:
     link_editable(target_dir, module_name, dry_run)
