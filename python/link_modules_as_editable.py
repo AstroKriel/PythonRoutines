@@ -27,53 +27,66 @@ GITHUB_REPOS = {
 def parse_args():
   parser = argparse.ArgumentParser(description="Link selected sindri submodules into a project-env managed by uv.")
   parser.add_argument("target_dir", type=Path, help="Target project directory (must contain a pyproject.toml)")
+  parser.add_argument("--self", action="store_true", help="Install the project: `uv pip install -e .`")
   for module_name in sorted(SUBMODULES):
     parser.add_argument(f"--{module_name}", action="store_true", help=f"Link python submodule `{module_name}`")
   parser.add_argument("--dry-run", action="store_true", help="Print actions without executing")
   return parser.parse_args()
 
-def link_editable(
+def run_command(
+    cmd: list[str],
+    cwd: Path | None = None
+  ) -> bool:
+  if cwd:
+    cwd = str(cwd)
+  try:
+    subprocess.run(cmd, cwd=cwd, check=True)
+    return True
+  except subprocess.CalledProcessError as e:
+    print(f"Error: command failed: {' '.join(cmd)}\n{e}")
+    return False
+
+def install_project(project_dir: Path, dry_run: bool) -> bool:
+  if dry_run:
+    print(f"[dry-run] Would run in {project_dir}: uv pip install -e .")
+    return True
+  print(f"Installing project itself in editable mode: {project_dir}")
+  return run_command(["uv", "pip", "install", "-e", "."], cwd=project_dir)
+
+def link_dependency(
     target_dir  : Path,
     module_name : str,
     dry_run     : bool = False
-  ):
-  ## make sure the project directory has a pyproject.toml file
-  pyproject_path = target_dir / "pyproject.toml"
-  if not pyproject_path.exists():
-    print(f"Error: no pyproject.toml found in {target_dir}")
-    sys.exit(1)
-  ## switch working directory to the target project (so uv uses the correct env context)
-  os.chdir(target_dir)
+  ) -> bool:
   ## confirm the requested module exists
   module_path = SUBMODULES.get(module_name)
   if not module_path or not module_path.exists():
     print(f"Error: `{module_name}` could not be found under: {module_path}")
-    sys.exit(1)
+    return False
   ## link (editable install) the module
-  command = ["uv", "pip", "install", "-e", str(module_path)]
   if dry_run:
     print(f"[dry-run] Would link `{module_name}` from: {module_path}")
+    return True
   else:
     print(f"Linking `{module_name}` from: {module_path}")
-    try:
-      subprocess.run(command, check=True)
-    except subprocess.CalledProcessError as e:
-      print(f"Error: failed to link `{module_name}`: {e}")
+    return run_command(["uv", "pip", "install", "-e", str(module_path)], cwd=target_dir)
 
-def write_dependency_notice(target_dir, selected_modules):
+def write_dependency_notice(target_dir, linked_modules):
+  if not linked_modules:
+    return
   file_path = target_dir / "DEPENDENCY_NOTICE.txt"
   file_content = []
   file_content.append("This project currently uses the following submodules as editable installs:")
-  for module_name in selected_modules:
-    local_path = os.path.relpath(SUBMODULES[module_name], start=target_dir)
-    file_content.append(f"\t- {module_name}: installed from local path: {local_path}")
+  for module_name in linked_modules:
+    relative_path = os.path.relpath(SUBMODULES[module_name], start=target_dir)
+    file_content.append(f"\t- {module_name}: installed from local path: {relative_path}")
     file_content.append(f"\t\tUninstall with: `uv pip uninstall {module_name}` # from the project root")
   file_content.append("")
   file_content.append("To make this project standalone, do the following:")
   file_content.append("\t1. Uninstall each local editable install using the commands mentioned above.")
   file_content.append("\t2. Add the following entries to your [project.dependencies] section in pyproject.toml:")
-  for module_name in selected_modules:
-    repo_html  = GITHUB_REPOS[module_name]
+  for module_name in linked_modules:
+    repo_html = GITHUB_REPOS[module_name]
     file_content.append(f"\t\t- `{repo_html}`")
   file_content.append("")
   file_content.append("Note: Run the uninstall commands from the project root so that uv uses the correct environment.")
@@ -84,18 +97,19 @@ def write_dependency_notice(target_dir, selected_modules):
 def main():
   ## parse user inputs
   user_args = parse_args()
+  target_dir = user_args.target_dir.resolve()
+  dry_run = user_args.dry_run
+  install_self = user_args.self
   selected_modules = [
     module_name
-    for module_name in SUBMODULES
+    for module_name in sorted(SUBMODULES)
     if getattr(user_args, module_name)
   ]
-  if not sorted(selected_modules):
-    print("No modules selected. Available flags:")
+  if not install_self and not selected_modules:
+    print("No actions were provided. Use --self to install the current project, or link submodules via:")
     print("  " + " ".join(f"--{module_name}" for module_name in SUBMODULES))
     sys.exit(1)
   ## confirm target project directory
-  target_dir = user_args.target_dir.resolve()
-  dry_run = user_args.dry_run
   if not target_dir.exists():
     raise FileNotFoundError(f"Target project directory does not exist: {target_dir}")
   print(f"Target project directory: {target_dir}")
@@ -103,17 +117,29 @@ def main():
   if user_response not in ("y", "yes"):
     print("Aborting.")
     sys.exit(1)
+  ## make sure the project directory has a pyproject.toml file
+  pyproject_path = target_dir / "pyproject.toml"
+  if not pyproject_path.exists():
+    print(f"Error: no pyproject.toml found in {target_dir}")
+    sys.exit(1)
   ## make sure there is no self-linking
   for module_name in selected_modules:
     source_dir = SUBMODULES[module_name].resolve()
     if source_dir == target_dir:
-      print(f"Warning: Link module `{module_name}` into itself (`target_dir == submodule`)")
-  ## link all requested modules
+      print(f"Aborting. Refusing to link module `{module_name}` into itself.")
+      sys.exit(1)
+  if user_args.self:
+    if not install_project(target_dir, dry_run):
+      print("Warning: editable install of the project failed.")
+  ## link requested modules
+  linked_modules = []
   for module_name in selected_modules:
-    link_editable(target_dir, module_name, dry_run)
+    if link_dependency(target_dir, module_name, dry_run):
+      linked_modules.append(module_name)
   ## write a notice to undo linking and update pyproject to reflect dependency on submodules
-  if not dry_run:
-    write_dependency_notice(target_dir, selected_modules)
+  if not dry_run and linked_modules:
+    write_dependency_notice(target_dir, linked_modules)
+  else: print("No dependency notice written.")
 
 if __name__ == "__main__":
   main()
