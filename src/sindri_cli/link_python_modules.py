@@ -23,7 +23,7 @@ GITHUB_REPOS = {
   "flash"   : "ww_flash_sims @ git+https://github.com/AstroKriel/WWFlashSims",
   "quokka"  : "ww_quokka_sims @ git+https://github.com/AstroKriel/WWQuokkaSims",
   "bifrost" : "bifrost @ git+https://github.com/AstroKriel/HDF5DataManager",
-  "jormi"   : "jormi @ git+https://github.com/AstroKriel/PythonTools",
+  "jormi"   : "jormi @ git+https://github.com/AstroKriel/PythonHelpers",
   "vegtamr" : "vegtamr @ git+https://github.com/AstroKriel/LineIntegralConvolution",
 }
 
