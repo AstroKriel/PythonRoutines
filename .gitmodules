@@ -1,6 +1,6 @@
 [submodule "submodules/jormi"]
 	path = submodules/jormi
-	url = git@github.com:AstroKriel/PythonTools.git
+	url = git@github.com:AstroKriel/PythonHelpers.git
 [submodule "submodules/bifrost"]
 	path = submodules/bifrost
 	url = git@github.com:AstroKriel/HDF5DataManager.git
