@@ -11,8 +11,16 @@
 	path = python/ww_flash_sims
 	url = git@github.com:AstroKriel/WWFlashSims.git
 [submodule "python/ww_arepo_sims"]
-	path = python/ww_arepo_sims
+	path = submodules/ww_arepo_sims
 	url = git@github.com:AstroKriel/WWArepoSims.git
 [submodule "python/ww_quokka_sims"]
-	path = python/ww_quokka_sims
+	path = submodules/ww_quokka_sims
 	url = git@github.com:AstroKriel/WWQuokkaSims.git
+[submodule "python/submodules/jormi"]
+	path = submodules/jormi
+[submodule "python/submodules/bifrost"]
+	path = submodules/bifrost
+[submodule "python/submodules/vegtamr"]
+	path = submodules/vegtamr
+[submodule "python/ww_flash_sims"]
+	path = submodules/ww_flash_sims
