@@ -1,12 +1,3 @@
-[submodule "julia/loki"]
-	path = julia/loki
-	url = git@github.com:AstroKriel/PowerSpectra.git
-[submodule "julia/valkyrja"]
-	path = julia/valkyrja
-	url = git@github.com:AstroKriel/EnergyTransfer.git
-[submodule "julia/thor"]
-	path = julia/thor
-	url = git@github.com:AstroKriel/JuliaTools.git
 [submodule "python/bifrost"]
 	path = python/submodules/bifrost
 	url = git@github.com:AstroKriel/HDF5DataManager.git
@@ -16,9 +7,6 @@
 [submodule "python/vegtamr"]
 	path = python/submodules/vegtamr
 	url = git@github.com:AstroKriel/LineIntegralConvolution.git
-[submodule "julia/frigg"]
-	path = julia/frigg
-	url = git@github.com:AstroKriel/JuliaTools.git
 [submodule "python/ww_flash"]
 	path = python/ww_flash_sims
 	url = git@github.com:AstroKriel/WWFlashSims.git
