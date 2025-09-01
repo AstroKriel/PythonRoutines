@@ -24,3 +24,22 @@
 	path = submodules/vegtamr
 [submodule "python/ww_flash_sims"]
 	path = submodules/ww_flash_sims
+[submodule "submodules/jormi"]
+	path = submodules/jormi
+	url = git@github.com:AstroKriel/PythonTools.git
+[submodule "submodules/bifrost"]
+	path = submodules/bifrost
+	url = git@github.com:AstroKriel/HDF5DataManager.git
+[submodule "submodules/vegtamr"]
+	path = submodules/vegtamr
+	url = git@github.com:AstroKriel/LineIntegralConvolution.git
+	branch = draft-docs
+[submodule "submodules/ww_flash_sims"]
+	path = submodules/ww_flash_sims
+	url = git@github.com:AstroKriel/WWFlashSims.git
+[submodule "submodules/ww_arepo_sims"]
+	path = submodules/ww_arepo_sims
+	url = git@github.com:AstroKriel/WWArepoSims.git
+[submodule "submodules/ww_quokka_sims"]
+	path = submodules/ww_quokka_sims
+	url = git@github.com:AstroKriel/WWQuokkaSims.git
