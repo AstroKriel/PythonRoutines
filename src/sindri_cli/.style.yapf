@@ -1,0 +1,27 @@
+[style]
+based_on_style = pep8
+
+## === Indentation ===
+use_tabs = false
+indent_width = 4
+
+## === Line wrapping ===
+column_limit = 100
+
+## === Brackets / function args ===
+## always break items into their own lines
+coalesce_brackets = false
+
+## align closing bracket with the start of the line
+dedent_closing_brackets = true
+
+## put the first arg on a new line
+split_before_first_argument = true
+
+## keyword args each get their own line
+split_before_named_assigns = true
+
+## trailing comma enforces vertical args
+split_arguments_when_comma_terminated = true 
+
+## .
