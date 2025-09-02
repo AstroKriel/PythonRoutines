@@ -6,10 +6,8 @@
 import sys
 import argparse
 from dataclasses import dataclass, field
-from typing import Optional, List, Tuple
 from pathlib import Path
 from jormi.ww_io import shell_manager, log_manager
-
 
 ##
 ## === GLOBAL PARAMS ===
@@ -19,35 +17,37 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 SINDRI_DIR = _SCRIPT_DIR.parent.parent
 
 SUBMODULES: dict[str, Path] = {
-    "arepo":  SINDRI_DIR / "submodules/ww_arepo_sims",
-    "flash":  SINDRI_DIR / "submodules/ww_flash_sims",
-    "quokka": SINDRI_DIR / "submodules/ww_quokka_sims",
+    "jormi": SINDRI_DIR / "submodules/jormi",
     "bifrost": SINDRI_DIR / "submodules/bifrost",
-    "jormi":  SINDRI_DIR / "submodules/jormi",
     "vegtamr": SINDRI_DIR / "submodules/vegtamr",
+    "quokka": SINDRI_DIR / "submodules/ww_quokka_sims",
+    "flash": SINDRI_DIR / "submodules/ww_flash_sims",
+    "arepo": SINDRI_DIR / "submodules/ww_arepo_sims",
 }
-
 
 ##
 ## === RESULTS STRUCT ===
 ##
 
+
 @dataclass
 class ResultsSummary:
-    uninstalls: List[Tuple[str, bool]] = field(default_factory=list)  # (alias, success)
-    installs:   List[Tuple[str, bool]] = field(default_factory=list)  # (alias, success)
-    self_install: Optional[bool] = None                                # project editable install
+    uninstalled_modules: list[tuple[str, bool]] = field(default_factory=list)  # (alias_name, successful)
+    installed_modules: list[tuple[str, bool]] = field(default_factory=list)  # (alias_name, successful)
+    self_install: bool | None = None  # project editable install
 
 
 ##
 ## === LOGGING HELPERS ===
 ##
 
+
 def log_info(text: str) -> None:
     log_manager.render_line(
         log_manager.Message(text, message_type=log_manager.MessageType.GENERAL),
         show_time=True,
     )
+
 
 def log_action(text: str, *, outcome: log_manager.ActionOutcome) -> None:
     log_manager.render_line(
@@ -64,7 +64,8 @@ def log_action(text: str, *, outcome: log_manager.ActionOutcome) -> None:
 ## === SHELL HELPERS ===
 ##
 
-def _run(
+
+def run_command(
     command: str,
     *,
     working_directory: Path | None = None,
@@ -79,9 +80,9 @@ def _run(
             working_directory=str(working_directory) if working_directory else None,
         )
         return True
-    except Exception as exc:
+    except Exception as exception:
         log_action(
-            f"Command failed: {command}\n{exc}",
+            f"Command failed: {command}\n{exception}",
             outcome=log_manager.ActionOutcome.FAILURE,
         )
         return False
@@ -91,99 +92,94 @@ def _run(
 ## === PROJECT PYTHON (LINUX/macOS) ===
 ##
 
-def _project_python(target_dir: Path) -> str:
-    project_python_path = target_dir / ".venv" / "bin" / "python"
-    if not project_python_path.exists():
+
+def ensure_project_venv_is_local(target_dir: Path) -> None:
+    venv_path = target_dir / ".venv"
+    if not venv_path.exists() or not venv_path.is_dir():
         raise FileNotFoundError(
-            f"Expected project interpreter at {project_python_path}. Create with: `uv venv`.",
+            f"No virtual-environment directory found under: {venv_path}\n"
+            "Create once with: `uv venv`"
         )
-    return str(project_python_path)
 
 
 ##
 ## === CORE ACTIONS ===
 ##
 
-def install_project_self(
+
+def self_install_project(
     target_dir: Path,
-    project_python_exe: str,
     dry_run: bool,
 ) -> bool:
     if dry_run:
-        log_info(f'[dry-run] Would run in {target_dir}: uv pip install -e . --python "{project_python_exe}"')
+        log_info(f'[dry-run] Would run in {target_dir}: `uv pip install -e .`')
         return True
     log_info(f"Installing project (editable) into: {target_dir}/.venv")
-    was_successful = _run(
-        f'uv pip install -e . --python "{project_python_exe}"',
+    successful = run_command(
+        f'uv pip install -e .',
         working_directory=target_dir,
     )
     log_action(
         "Editable install of project",
-        outcome=(log_manager.ActionOutcome.SUCCESS if was_successful else log_manager.ActionOutcome.FAILURE),
+        outcome=(log_manager.ActionOutcome.SUCCESS if successful else log_manager.ActionOutcome.FAILURE),
     )
-    return was_successful
+    return successful
 
 
-def link_alias_into_project(
+def link_module_to_project(
     target_dir: Path,
-    project_python_exe: str,
     module_alias: str,
     dry_run: bool,
 ) -> bool:
     module_local_path = SUBMODULES[module_alias].resolve()
     module_name = module_local_path.name
-
     if not module_local_path.exists():
         log_action(f"Submodule not found: {module_local_path}", outcome=log_manager.ActionOutcome.FAILURE)
         return False
     if module_local_path == target_dir.resolve():
         log_action(f"Refusing to link `{module_name}` into itself.", outcome=log_manager.ActionOutcome.FAILURE)
         return False
-
     if dry_run:
-        log_info(f'[dry-run] Would link `{module_name}` from: {module_local_path} using --python "{project_python_exe}"')
+        log_info(f'[dry-run] Would link `{module_name}` from: {module_local_path}')
         return True
-
     log_info(f"Linking `{module_name}` from: {module_local_path}")
-    was_successful = _run(
-        f'uv pip install -e "{module_local_path}" --python "{project_python_exe}"',
+    successful = run_command(
+        f'uv pip install -e "{module_local_path}"',
         working_directory=target_dir,
     )
     log_action(
         f"Linked `{module_name}`",
-        outcome=(log_manager.ActionOutcome.SUCCESS if was_successful else log_manager.ActionOutcome.FAILURE),
+        outcome=(log_manager.ActionOutcome.SUCCESS if successful else log_manager.ActionOutcome.FAILURE),
     )
-    return was_successful
+    return successful
 
 
-def uninstall_alias_from_project(
+def unlink_module_from_project(
     target_dir: Path,
-    project_python_exe: str,
     module_alias: str,
     dry_run: bool,
 ) -> bool:
     module_local_path = SUBMODULES[module_alias].resolve()
     module_name = module_local_path.name
-
     if dry_run:
-        log_info(f'[dry-run] Would uninstall `{module_name}` using --python "{project_python_exe}"')
+        log_info(f'[dry-run] Would uninstall `{module_name}`')
         return True
-
     log_info(f"Uninstalling `{module_name}` from project env")
-    was_successful = _run(
-        f'uv pip uninstall {module_name} --python "{project_python_exe}"',
+    successful = run_command(
+        f'uv pip uninstall {module_name}',
         working_directory=target_dir,
     )
     log_action(
         f"Uninstalled `{module_name}`",
-        outcome=(log_manager.ActionOutcome.SUCCESS if was_successful else log_manager.ActionOutcome.FAILURE),
+        outcome=(log_manager.ActionOutcome.SUCCESS if successful else log_manager.ActionOutcome.FAILURE),
     )
-    return was_successful
+    return successful
 
 
 ##
 ## === ARG PARSING ===
 ##
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -207,113 +203,96 @@ def parse_args():
 ## === WORKFLOW CLASS ===
 ##
 
-class LinkWorkflow:
+
+class LinkModules:
+
     def __init__(self, user_args):
         self.user_args = user_args
 
-        # planned/derived state
         self.target_dir: Path | None = None
-        self.project_python_exe: str | None = None
         self.selected_install_aliases: list[str] = []
         self.selected_uninstall_aliases: list[str] = []
         self.do_self_install: bool = False
         self.is_dry_run: bool = False
 
-        # results
         self.results = ResultsSummary()
 
-    def validate_and_plan(self) -> None:
+    def parse_and_verify_args(self) -> None:
         """Check inputs, resolve paths, choose actions, confirm with user."""
         target_dir = self.user_args.target_dir.resolve()
         if not target_dir.exists():
             raise FileNotFoundError(f"Target project directory does not exist: {target_dir}")
-
         pyproject_path = target_dir / "pyproject.toml"
         if not pyproject_path.exists():
             log_action(f"No pyproject.toml found in {target_dir}", outcome=log_manager.ActionOutcome.FAILURE)
             sys.exit(1)
-
         try:
-            project_python_exe = _project_python(target_dir)
-        except Exception as exc:
-            log_action(str(exc), outcome=log_manager.ActionOutcome.FAILURE)
+            ensure_project_venv_is_local(target_dir)
+        except Exception as exception:
+            log_action(str(exception), outcome=log_manager.ActionOutcome.FAILURE)
             sys.exit(1)
-
         log_info(f"Target project directory: {target_dir}")
-        log_info(f"Using interpreter: {project_python_exe}")
         user_response = input("Proceed? [y/N]: ").strip().lower()
         if user_response not in ("y", "yes"):
             log_action("Aborting per user input.", outcome=log_manager.ActionOutcome.SKIPPED)
             sys.exit(1)
-
-        selected_install_aliases   = [a for a in sorted(SUBMODULES) if getattr(self.user_args, a)]
+        selected_install_aliases = [a for a in sorted(SUBMODULES) if getattr(self.user_args, a)]
         selected_uninstall_aliases = [a for a in sorted(SUBMODULES) if getattr(self.user_args, f"no_{a}")]
         do_self_install = bool(self.user_args.self_install)
         is_dry_run = bool(self.user_args.dry_run)
-
         if not do_self_install and not selected_install_aliases and not selected_uninstall_aliases:
             log_info("No actions were provided. Examples:")
             log_info("  --self-install  or  --jormi  or  --no-jormi")
             sys.exit(1)
-
-        # commit plan to instance
         self.target_dir = target_dir
-        self.project_python_exe = project_python_exe
         self.selected_install_aliases = selected_install_aliases
         self.selected_uninstall_aliases = selected_uninstall_aliases
         self.do_self_install = do_self_install
         self.is_dry_run = is_dry_run
 
     def apply_actions(self) -> None:
-        """Run: uninstalls → self-install (optional) → installs."""
-        assert self.target_dir is not None and self.project_python_exe is not None
-
-        # Uninstall first (clean slate)
+        """Run: uninstalled_modules → self-install (optional) → installed_modules."""
+        assert self.target_dir is not None
+        ## first unlink (uninstall) requested modules
         for module_alias in self.selected_uninstall_aliases:
-            was_successful = uninstall_alias_from_project(
-                self.target_dir, self.project_python_exe, module_alias, self.is_dry_run
+            successful = unlink_module_from_project(
+                self.target_dir,
+                module_alias,
+                self.is_dry_run,
             )
-            self.results.uninstalls.append((module_alias, was_successful))
-
-        # Editable install of the project itself
+            self.results.uninstalled_modules.append((module_alias, successful))
+        ## install project inplace
         if self.do_self_install:
-            self.results.self_install = install_project_self(
-                self.target_dir, self.project_python_exe, self.is_dry_run
+            self.results.self_install = self_install_project(
+                self.target_dir,
+                self.is_dry_run,
             )
-
-        # Link requested aliases
+        ## link (editable install) requested modules
         for module_alias in self.selected_install_aliases:
-            was_successful = link_alias_into_project(
-                self.target_dir, self.project_python_exe, module_alias, self.is_dry_run
+            successful = link_module_to_project(
+                self.target_dir,
+                module_alias,
+                self.is_dry_run,
             )
-            self.results.installs.append((module_alias, was_successful))
+            self.results.installed_modules.append((module_alias, successful))
 
     def summarize_and_exit(self) -> None:
-        """Log a concise summary and exit with 0 on success, 1 on any failure."""
-        failed_uninstalls = [alias for alias, was_successful in self.results.uninstalls if not was_successful]
-        failed_installs   = [alias for alias, was_successful in self.results.installs   if not was_successful]
-        self_status       = self.results.self_install
-
-        if failed_uninstalls:
-            log_info(f"Uninstall failures: {', '.join(failed_uninstalls)}")
-        if failed_installs:
-            log_info(f"Install failures: {', '.join(failed_installs)}")
+        failed_uninstalls = [alias for (alias, successful) in self.results.uninstalled_modules if not successful]
+        failed_installs = [alias for (alias, successful) in self.results.installed_modules if not successful]
+        self_status = self.results.self_install
+        if failed_uninstalls: log_info(f"Uninstall failures: {', '.join(failed_uninstalls)}")
+        if failed_installs: log_info(f"Install failures: {', '.join(failed_installs)}")
+        if self_status is not None: log_info(f"Project editable install: {'succeeded' if self_status else 'failed'}")
+        log_info(f"Summarised results: {self.results}")
+        collected_results: list[bool] = []
         if self_status is not None:
-            log_info(f"Project editable install: {'succeeded' if self_status else 'failed'}")
-
-        # Optional: full object for inspection
-        log_info(f"Action results: {self.results}")
-
-        flat_bools: list[bool] = []
-        if self_status is not None:
-            flat_bools.append(bool(self_status))
-        flat_bools.extend(bool(was_successful) for _, was_successful in self.results.uninstalls)
-        flat_bools.extend(bool(was_successful) for _, was_successful in self.results.installs)
-
-        sys.exit(0 if all(flat_bools) else 1)
+            collected_results.append(bool(self_status))
+        collected_results.extend(bool(successful) for _, successful in self.results.uninstalled_modules)
+        collected_results.extend(bool(successful) for _, successful in self.results.installed_modules)
+        sys.exit(0 if all(collected_results) else 1)
 
     def run(self) -> None:
-        self.validate_and_plan()
+        self.parse_and_verify_args()
         self.apply_actions()
         self.summarize_and_exit()
 
@@ -322,9 +301,10 @@ class LinkWorkflow:
 ## === MAIN ===
 ##
 
+
 def main():
     user_args = parse_args()
-    LinkWorkflow(user_args).run()
+    LinkModules(user_args).run()
 
 
 ##
