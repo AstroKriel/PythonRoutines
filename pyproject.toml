@@ -19,7 +19,7 @@ jormi = { path = "submodules/jormi" }
 ## refresh lookup via: `hash -r`
 [project.scripts]
 format-python-files = "sindri_cli.format_python_files:main"
-link-python-modules = "sindri_cli.link_python_modules:main"
+link-sindri-modules = "sindri_cli.link_sindri_modules:main"
 
 [build-system]
 requires = ["hatchling>=1.25"]
