@@ -191,28 +191,6 @@ def get_sindri_module_status() -> dict[str, ModuleStatus]:
     return {module_alias: verify_sindri_module(module_alias) for module_alias in SINDRI_MODULES}
 
 
-def get_package_name(
-    module_alias: str,
-    *,
-    module_statuses: dict[str, ModuleStatus],
-) -> str:
-    module_status = module_statuses[module_alias]
-    if module_status.is_valid and module_status.module_name:
-        return module_status.module_name
-    raise ValueError(f"Cannot resolve package name for broken module: {module_alias} ({module_status.reason})")
-
-
-def get_package_names(
-    module_aliases: list[str],
-    *,
-    module_statuses: dict[str, ModuleStatus],
-) -> list[str]:
-    return [get_package_name(
-        module_alias,
-        module_statuses=module_statuses,
-    ) for module_alias in module_aliases]
-
-
 def get_display_name(
     module_alias: str,
     *,
@@ -316,9 +294,8 @@ def render_status_hint_block(
         rows.append((name, error_message, hint))
     column_width = max((len(n) for n in width_candidates), default=8)
     lines = [
-        f"{name:<{column_width}} : {hint}"
-        if (error_message is None) else
-        f"{name:<{column_width}} : {error_message:>12} \n\t{hint}"
+        f"{name:<{column_width}} : {hint}" if
+        (error_message is None) else f"{name:<{column_width}} : {error_message:>12} \n\t{hint}"
         for (name, error_message, hint) in rows
     ]
     num_broken_modules = sum(1 for _, module_status_text, _ in rows if module_status_text is not None)
@@ -656,10 +633,6 @@ class LinkModules:
                 validated_modules_to_install.append(module_alias)
             else:
                 self.results.broken_modules.append((module_alias, str(module_status.reason)))
-                log_outcome(
-                    f"Skipping `{module_alias}` : broken module ({module_status.reason}).",
-                    outcome=log_manager.ActionOutcome.FAILURE,
-                )
         self.modules_to_install = validated_modules_to_install
         planned_installs = ", ".join(
             get_display_names(
@@ -684,9 +657,9 @@ class LinkModules:
         }
         if self.results.broken_modules:
             broken_readable = ", ".join(
-                f"{module_alias}({reason})" for module_alias, reason in self.results.broken_modules
+                f"{module_alias}({reason})" for (module_alias, reason) in self.results.broken_modules
             )
-            notes["broken"] = broken_readable
+            notes["broken-modules"] = broken_readable
 
         log_details(
             title="Planned Actions",
@@ -709,7 +682,9 @@ class LinkModules:
                     for module_alias in modules_to_reinstall
                 ),
             )
-            log_detail(f"Reinstall will occur for: {list_of_modules} (uninstall {log_manager.Symbols.RIGHT_ARROW.value} install)")
+            log_detail(
+                f"Reinstall will occur for: {list_of_modules} (uninstall {log_manager.Symbols.RIGHT_ARROW.value} install)"
+            )
         self.target_dir = target_dir
 
     def apply_requested_actions(
@@ -760,7 +735,7 @@ class LinkModules:
         ]
         self_status = self.results.self_install
         self_un_status = self.results.self_uninstall
-        broken_summary = (
+        broken_requests = (
             "none" if not self.results.broken_modules else ", ".join(
                 f"{get_display_name(module_alias, module_statuses=self.module_statuses)}[{reason}]"
                 for module_alias, reason in self.results.broken_modules
@@ -770,11 +745,11 @@ class LinkModules:
             title="Final Summary",
             message="Finished.",
             notes={
-                "self-install": ("—" if self_status is None else ("succeeded" if self_status else "failed")),
-                "self-uninstall": ("—" if self_un_status is None else ("succeeded" if self_un_status else "failed")),
-                "uninstalls": ("all succeeded" if not failed_uninstalls else f"failed: {', '.join(failed_uninstalls)}"),
-                "installs": ("all succeeded" if not failed_installs else f"failed: {', '.join(failed_installs)}"),
-                "broken": broken_summary,
+                "status-project-install": ("—" if self_status is None else ("succeeded" if self_status else "failed")),
+                "status-project-uninstall": ("—" if self_un_status is None else ("succeeded" if self_un_status else "failed")),
+                "status-module-uninstalls": ("all succeeded" if not failed_uninstalls else f"failed: {', '.join(failed_uninstalls)}"),
+                "status-module-installs": ("all succeeded" if not failed_installs else f"failed: {', '.join(failed_installs)}"),
+                "requested-broken-modules": broken_requests,
             },
         )
         collected_results: list[bool] = []
