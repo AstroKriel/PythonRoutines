@@ -13,7 +13,7 @@ jormi = { path = "submodules/jormi" }
 
 ## (run from the repo root)
 ## install via: `uv tool install --editable .`
-## update via: `uv tool update sindri-cli`
+## update via: `uv tool upgrade --reinstall sindri-cli`
 ## uninstall via: `uv tool uninstall sindri-cli`
 ## check installed uv tools: `uv tool list`
 ## refresh lookup via: `hash -r`
