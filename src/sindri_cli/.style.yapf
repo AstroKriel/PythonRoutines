@@ -6,7 +6,7 @@ use_tabs = false
 indent_width = 4
 
 ## === Line wrapping ===
-column_limit = 100
+column_limit = 120
 
 ## === Brackets / function args ===
 ## always break items into their own lines
@@ -21,7 +21,16 @@ split_before_first_argument = true
 ## keyword args each get their own line
 split_before_named_assigns = true
 
+## force splitting of list comprehensions and similar constructs
+split_complex_comprehension = true
+
 ## trailing comma enforces vertical args
-split_arguments_when_comma_terminated = true 
+split_arguments_when_comma_terminated = true
+
+## break before logical operators in long boolean expressions
+split_before_logical_operator = true
+
+## each dict entry on its own line when multiline
+each_dict_entry_on_separate_line = true
 
 ## .
