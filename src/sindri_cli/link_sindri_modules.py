@@ -7,6 +7,7 @@
 import sys
 import tomllib
 import argparse
+from typing import Any
 from pathlib import Path
 from dataclasses import dataclass, field
 from jormi.ww_io import shell_manager, log_manager
@@ -34,86 +35,52 @@ SINDRI_MODULES: dict[str, Path] = {
 
 @dataclass
 class ResultsSummary:
-    uninstalled_modules: list[tuple[str, bool]] = field(default_factory=list)  # (module_alias, successful)
-    installed_modules: list[tuple[str, bool]] = field(default_factory=list)  # (module_alias, successful)
-    broken_modules: list[tuple[str, str]] = field(default_factory=list)  # (module_alias, reason)
-    self_install: bool | None = None  # editable install of the project
-    self_uninstall: bool | None = None  # uninstall of the project package
+    uninstalled_modules: list[tuple[str, bool]] = field(default_factory=list)
+    installed_modules: list[tuple[str, bool]] = field(default_factory=list)
+    broken_modules: list[tuple[str, str]] = field(default_factory=list)
+    self_install: bool | None = None
+    self_uninstall: bool | None = None
 
 
 ##
-## === LOGGING HELPERS ===
+## === PLANNED INFO (reused later) ===
 ##
 
 
-def log_detail(
-    text: str,
-) -> None:
-    log_manager.render_line(
-        log_manager.Message(
-            text,
-            message_type=log_manager.MessageType.DETAILS,
-        ),
-        show_time=True,
-    )
+@dataclass
+class PlannedInfo:
+    install_aliases: list[str] = field(default_factory=list)
+    uninstall_aliases: list[str] = field(default_factory=list)
+    install_names: list[str] = field(default_factory=list)
+    uninstall_names: list[str] = field(default_factory=list)
+    broken_readable: str = "none"
+    alias_to_name: dict[str, str] = field(default_factory=dict)
 
 
-def log_outcome(
-    text: str,
-    *,
-    outcome: log_manager.ActionOutcome,
-) -> None:
-    log_manager.render_line(
-        log_manager.Message(
-            text,
-            message_type=log_manager.MessageType.ACTION,
-            action_outcome=outcome,
-        ),
-        show_time=True,
-    )
+##
+## === HELPERS FOR SUMMARY ===
+##
 
 
-def log_action(
-    *,
-    title: str,
-    succeeded: bool | None,
-    message: str = "",
-    notes: dict[str, object] | None = None,
-) -> None:
-    if succeeded is None:
-        outcome = log_manager.ActionOutcome.SKIPPED
-    elif succeeded:
-        outcome = log_manager.ActionOutcome.SUCCESS
-    else:
-        outcome = log_manager.ActionOutcome.FAILURE
-    log_manager.render_block(
-        log_manager.Message(
-            message=message,
-            message_type=log_manager.MessageType.ACTION,
-            message_title=title,
-            action_outcome=outcome,
-            message_notes=(notes or {}),
-        ),
-        show_time=True,
-    )
+def format_optional_outcome(
+    flag: bool | None,
+) -> str:
+    return (log_manager.Symbols.EM_DASH.value if flag is None else ("succeeded" if flag else "failed"))
 
 
-def log_details(
-    *,
-    title: str,
-    message: str = "",
-    message_type: log_manager.MessageType = log_manager.MessageType.DETAILS,
-    notes: dict[str, str] | dict[str, object] | None = None,
-) -> None:
-    log_manager.render_block(
-        log_manager.Message(
-            message=message,
-            message_type=message_type,
-            message_title=title,
-            message_notes=(notes or {}),
-        ),
-        show_time=True,
-    )
+def format_batch_outcome(
+    requested_aliases: list[str],
+    failed_display_names: list[str],
+) -> str:
+    if not requested_aliases:
+        return log_manager.Symbols.EM_DASH.value
+    return "all succeeded" if not failed_display_names else f"failed: {', '.join(failed_display_names)}"
+
+
+def list_or_dash(
+    items: list[str],
+) -> str:
+    return ", ".join(items) if items else log_manager.Symbols.EM_DASH.value
 
 
 ##
@@ -205,10 +172,7 @@ def get_display_names(
     *,
     module_statuses: dict[str, ModuleStatus],
 ) -> list[str]:
-    return [get_display_name(
-        module_alias,
-        module_statuses=module_statuses,
-    ) for module_alias in module_aliases]
+    return [get_display_name(module_alias, module_statuses=module_statuses) for module_alias in module_aliases]
 
 
 ##
@@ -226,13 +190,7 @@ def run_command(
 ) -> bool:
     try:
         if message:
-            log_manager.render_line(
-                log_manager.Message(
-                    message,
-                    message_type=log_manager.MessageType.STEP,
-                ),
-                show_time=True,
-            )
+            log_manager.log_task(message, show_time=True)
         shell_manager.execute_shell_command(
             command,
             timeout_seconds=timeout_seconds,
@@ -241,7 +199,7 @@ def run_command(
         )
         return True
     except Exception as exception:
-        log_outcome(
+        log_manager.log_outcome(
             f"Command failed: {command}\n{exception}",
             outcome=log_manager.ActionOutcome.FAILURE,
         )
@@ -308,10 +266,9 @@ def render_status_hint_block(
     }
     if project_name:
         notes["this project"] = f"uv pip show {project_name}"
-    log_details(
+    log_manager.log_context(
         title="Package Status",
-        message="Run any of the above to inspect editable installs (broken items are listed with a reason)",
-        message_type=log_manager.MessageType.HINT,
+        message="Run any of the above to inspect editable installs (broken items are listed with a reason).",
         notes=notes,
     )
 
@@ -321,15 +278,12 @@ def render_status_hint_block(
 ##
 
 
-def self_install_project(
-    target_dir: Path,
-    dry_run: bool,
-) -> bool:
+def self_install_project_status(target_dir: Path, dry_run: bool) -> bool:
     project_name = read_project_name(target_dir)
     command = "uv pip install -e ."
     title = "Install project"
     if dry_run:
-        log_action(
+        log_manager.log_action(
             title=title,
             succeeded=None,
             message="[dry-run] Would run: uv pip install -e .",
@@ -341,8 +295,8 @@ def self_install_project(
         working_directory=target_dir,
         message=f"Installing project: {project_name}",
     )
-    print(" ")
-    log_action(
+    log_manager.log_empty_lines(lines=1)
+    log_manager.log_action(
         title=title,
         succeeded=succeeded,
         message=f"Command: {command}",
@@ -354,15 +308,12 @@ def self_install_project(
     return succeeded
 
 
-def self_uninstall_project(
-    target_dir: Path,
-    dry_run: bool,
-) -> bool:
+def self_uninstall_project_status(target_dir: Path, dry_run: bool) -> bool:
     project_name = read_project_name(target_dir)
     command = f"uv pip uninstall {project_name}"
     title = "Uninstall project"
     if dry_run:
-        log_action(
+        log_manager.log_action(
             title=title,
             succeeded=None,
             message=f"[dry-run] Would run: {command}",
@@ -377,8 +328,8 @@ def self_uninstall_project(
         working_directory=target_dir,
         message=f"Uninstalling project: {project_name}",
     )
-    print(" ")
-    log_action(
+    log_manager.log_empty_lines(lines=1)
+    log_manager.log_action(
         title=title,
         succeeded=succeeded,
         message=f"Command: {command}",
@@ -399,9 +350,8 @@ def install_module_to_project(
 ) -> bool:
     module_status = module_statuses[module_alias]
     module_local_path = module_status.module_path
-
     if not module_status.is_valid or not module_status.module_name:
-        log_action(
+        log_manager.log_action(
             title=f"Install `{module_alias}`",
             succeeded=False,
             message="Failed. Broken module (see notes).",
@@ -416,7 +366,7 @@ def install_module_to_project(
     command = f'uv pip install -e "{module_local_path}"'
     title = f"Install `{module_name}`"
     if not module_local_path.exists():
-        log_action(
+        log_manager.log_action(
             title=title,
             succeeded=False,
             message="Failed. Module path does not exist.",
@@ -427,7 +377,7 @@ def install_module_to_project(
         )
         return False
     if module_local_path == target_dir.resolve():
-        log_action(
+        log_manager.log_action(
             title=title,
             succeeded=False,
             message="Failed. Refused to install module into itself.",
@@ -438,7 +388,7 @@ def install_module_to_project(
         )
         return False
     if dry_run:
-        log_action(
+        log_manager.log_action(
             title=f"Planned install `{module_name}`",
             succeeded=None,
             message=f"[dry-run] Would run: {command}",
@@ -454,8 +404,8 @@ def install_module_to_project(
         working_directory=target_dir,
         message=f"Installing `{module_name}` module",
     )
-    print(" ")
-    log_action(
+    log_manager.log_empty_lines(lines=1)
+    log_manager.log_action(
         title=f"Installed `{module_name}`",
         succeeded=succeeded,
         message=f"Command: {command}",
@@ -478,7 +428,7 @@ def uninstall_module_from_project(
     module_status = module_statuses[module_alias]
     module_local_path = module_status.module_path
     if not module_status.is_valid or not module_status.module_name:
-        log_action(
+        log_manager.log_action(
             title=f"Uninstall `{module_alias}`",
             succeeded=False,
             message="Failed. Broken module (cannot resolve package name).",
@@ -493,7 +443,7 @@ def uninstall_module_from_project(
     command = f"uv pip uninstall {module_name}"
     title = f"Uninstall `{module_name}`"
     if dry_run:
-        log_action(
+        log_manager.log_action(
             title=title,
             succeeded=None,
             message=f"[dry-run] Would run: {command}",
@@ -508,8 +458,8 @@ def uninstall_module_from_project(
         working_directory=target_dir,
         message=f"Uninstalling `{module_name}` module",
     )
-    print(" ")
-    log_action(
+    log_manager.log_empty_lines(lines=1)
+    log_manager.log_action(
         title=title,
         succeeded=succeeded,
         message=f"Command: {command}",
@@ -591,7 +541,8 @@ class LinkModules:
         self.show_stutus_hint: bool = False
         self.is_dry_run: bool = False
         self.results = ResultsSummary()
-        self.module_statuses: dict[str, ModuleStatus] = {}  # central integrity cache
+        self.module_statuses: dict[str, ModuleStatus] = {}
+        self.plan = PlannedInfo()
 
     def parse_and_verify_args(
         self,
@@ -601,16 +552,15 @@ class LinkModules:
             raise FileNotFoundError(f"Target project directory does not exist: {target_dir}")
         pyproject_path = target_dir / "pyproject.toml"
         if not pyproject_path.exists():
-            log_outcome(
+            log_manager.log_outcome(
                 f"No pyproject.toml found in {target_dir}",
                 outcome=log_manager.ActionOutcome.FAILURE,
             )
-            # keep style: exit via sys.exit for hard failures
             sys.exit(1)
         try:
             ensure_project_root(target_dir)
         except Exception as exception:
-            log_outcome(
+            log_manager.log_outcome(
                 str(exception),
                 outcome=log_manager.ActionOutcome.FAILURE,
             )
@@ -634,19 +584,23 @@ class LinkModules:
             else:
                 self.results.broken_modules.append((module_alias, str(module_status.reason)))
         self.modules_to_install = validated_modules_to_install
-        planned_installs = ", ".join(
-            get_display_names(
-                self.modules_to_install,
-                module_statuses=self.module_statuses,
-            ),
-        ) or log_manager.Symbols.EM_DASH.value
-        planned_uninstalls = ", ".join(
-            get_display_names(
-                self.modules_to_uninstall,
-                module_statuses=self.module_statuses,
-            ),
-        ) or log_manager.Symbols.EM_DASH.value
-        notes: dict[str, object] = {
+        self.plan.install_aliases = list(self.modules_to_install)
+        self.plan.uninstall_aliases = list(self.modules_to_uninstall)
+        self.plan.install_names = get_display_names(
+            self.modules_to_install,
+            module_statuses=self.module_statuses,
+        )
+        self.plan.uninstall_names = get_display_names(
+            self.modules_to_uninstall,
+            module_statuses=self.module_statuses,
+        )
+        self.plan.alias_to_name = {
+            alias: get_display_name(alias, module_statuses=self.module_statuses)
+            for alias in sorted(SINDRI_MODULES)
+        }
+        planned_installs = list_or_dash(self.plan.install_names)
+        planned_uninstalls = list_or_dash(self.plan.uninstall_names)
+        notes: dict[str, Any] = {
             "target-project": str(target_dir),
             "self-install": self.do_self_install,
             "self-uninstall": self.do_self_uninstall,
@@ -657,33 +611,33 @@ class LinkModules:
         }
         if self.results.broken_modules:
             broken_readable = ", ".join(
-                f"{module_alias}({reason})" for (module_alias, reason) in self.results.broken_modules
+                f"{module_alias} {log_manager.Symbols.RIGHT_ARROW.value} "
+                f"{get_display_name(module_alias, module_statuses=self.module_statuses)}[{reason}]"
+                for module_alias, reason in self.results.broken_modules
             )
-            notes["broken-modules"] = broken_readable
-
-        log_details(
+            self.plan.broken_readable = broken_readable
+            notes["requested-broken-modules"] = broken_readable
+        else:
+            self.plan.broken_readable = "none"
+        log_manager.log_context(
             title="Planned Actions",
             notes=notes,
             message="Review the items above.",
         )
         user_response = input("Proceed? [y/N]: ").strip().lower()
         if user_response not in ("y", "yes"):
-            log_outcome(
-                "Aborted by user.",
-                outcome=log_manager.ActionOutcome.SKIPPED,
-            )
+            log_manager.log_outcome("Aborted by user.", outcome=log_manager.ActionOutcome.SKIPPED)
             sys.exit(1)
-        print(" ")
+        log_manager.log_empty_lines(lines=1)
         modules_to_reinstall = set(self.modules_to_uninstall) & set(self.modules_to_install)
         if modules_to_reinstall:
             list_of_modules = ", ".join(
-                sorted(
-                    get_display_name(module_alias, module_statuses=self.module_statuses)
-                    for module_alias in modules_to_reinstall
-                ),
+                sorted(get_display_name(alias, module_statuses=self.module_statuses) for alias in modules_to_reinstall),
             )
-            log_detail(
-                f"Reinstall will occur for: {list_of_modules} (uninstall {log_manager.Symbols.RIGHT_ARROW.value} install)"
+            log_manager.log_note(
+                f"Reinstall will occur for: {list_of_modules} "
+                f"(uninstall {log_manager.Symbols.RIGHT_ARROW.value} install)",
+                show_time=True,
             )
         self.target_dir = target_dir
 
@@ -700,12 +654,12 @@ class LinkModules:
             )
             self.results.uninstalled_modules.append((module_alias, successful))
         if self.do_self_uninstall:
-            self.results.self_uninstall = self_uninstall_project(
+            self.results.self_uninstall = self_uninstall_project_status(
                 self.target_dir,
                 self.is_dry_run,
             )
         if self.do_self_install:
-            self.results.self_install = self_install_project(
+            self.results.self_install = self_install_project_status(
                 self.target_dir,
                 self.is_dry_run,
             )
@@ -720,50 +674,42 @@ class LinkModules:
         if self.show_stutus_hint:
             render_status_hint_block(self.target_dir, module_statuses=self.module_statuses)
 
-    def summarise_and_exit(
-        self,
-    ) -> None:
+    def summarise_and_exit(self) -> None:
         failed_uninstalls = [
-            get_display_name(module_alias, module_statuses=self.module_statuses)
+            self.plan.alias_to_name[module_alias]
             for (module_alias, successful) in self.results.uninstalled_modules
             if not successful
         ]
         failed_installs = [
-            get_display_name(module_alias, module_statuses=self.module_statuses)
+            self.plan.alias_to_name[module_alias]
             for (module_alias, successful) in self.results.installed_modules
             if not successful
         ]
-        self_status = self.results.self_install
-        self_un_status = self.results.self_uninstall
-        broken_requests = (
-            "none" if not self.results.broken_modules else ", ".join(
-                f"{get_display_name(module_alias, module_statuses=self.module_statuses)}[{reason}]"
-                for module_alias, reason in self.results.broken_modules
-            )
-        )
-        log_details(
+        install_project_status = self.results.self_install
+        uninstall_project_status = self.results.self_uninstall
+        log_manager.log_summary(
             title="Final Summary",
             message="Finished.",
             notes={
-                "status-project-install": ("—" if self_status is None else ("succeeded" if self_status else "failed")),
-                "status-project-uninstall": ("—" if self_un_status is None else ("succeeded" if self_un_status else "failed")),
-                "status-module-uninstalls": ("all succeeded" if not failed_uninstalls else f"failed: {', '.join(failed_uninstalls)}"),
-                "status-module-installs": ("all succeeded" if not failed_installs else f"failed: {', '.join(failed_installs)}"),
-                "requested-broken-modules": broken_requests,
+                "project-install": format_optional_outcome(install_project_status),
+                "project-uninstall": format_optional_outcome(uninstall_project_status),
+                "module-uninstalls": format_batch_outcome(self.plan.uninstall_aliases, failed_uninstalls),
+                "module-installs": format_batch_outcome(self.plan.install_aliases, failed_installs),
+                "planned-installs": list_or_dash(self.plan.install_names),
+                "planned-uninstalls": list_or_dash(self.plan.uninstall_names),
+                "requested-broken-modules": self.plan.broken_readable,
             },
         )
-        collected_results: list[bool] = []
-        if self_status is not None:
-            collected_results.append(bool(self_status))
-        if self_un_status is not None:
-            collected_results.append(bool(self_un_status))
-        collected_results.extend(bool(successful) for (_, successful) in self.results.uninstalled_modules)
-        collected_results.extend(bool(successful) for (_, successful) in self.results.installed_modules)
-        sys.exit(0 if all(collected_results) else 1)
+        status_summary: list[bool] = []
+        if install_project_status is not None:
+            status_summary.append(bool(install_project_status))
+        if uninstall_project_status is not None:
+            status_summary.append(bool(uninstall_project_status))
+        status_summary.extend(bool(successful) for (_, successful) in self.results.uninstalled_modules)
+        status_summary.extend(bool(successful) for (_, successful) in self.results.installed_modules)
+        sys.exit(0 if all(status_summary) else 1)
 
-    def run(
-        self,
-    ) -> None:
+    def run(self) -> None:
         self.parse_and_verify_args()
         self.apply_requested_actions()
         self.summarise_and_exit()
@@ -778,10 +724,6 @@ def main():
     user_args = parse_args()
     LinkModules(user_args).run()
 
-
-##
-## === ENTRY POINT ===
-##
 
 if __name__ == "__main__":
     main()
