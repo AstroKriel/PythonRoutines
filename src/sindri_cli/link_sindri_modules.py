@@ -5,6 +5,7 @@
 ##
 
 import sys
+import json
 import tomllib
 import argparse
 from typing import Any
@@ -37,7 +38,7 @@ SINDRI_MODULES: dict[str, Path] = {
 class ResultsSummary:
     uninstalled_modules: list[tuple[str, bool]] = field(default_factory=list)
     installed_modules: list[tuple[str, bool]] = field(default_factory=list)
-    broken_modules: list[tuple[str, str]] = field(default_factory=list)
+    broken_aliases: list[tuple[str, str]] = field(default_factory=list)
     self_install: bool | None = None
     self_uninstall: bool | None = None
 
@@ -53,7 +54,7 @@ class PlannedInfo:
     uninstall_aliases: list[str] = field(default_factory=list)
     install_names: list[str] = field(default_factory=list)
     uninstall_names: list[str] = field(default_factory=list)
-    broken_readable: str = "none"
+    broken_aliases: str = "none"
     alias_to_name: dict[str, str] = field(default_factory=dict)
 
 
@@ -154,25 +155,67 @@ def verify_sindri_module(
         )
 
 
-def get_sindri_module_status() -> dict[str, ModuleStatus]:
+def verify_sindri_modules() -> dict[str, ModuleStatus]:
     return {module_alias: verify_sindri_module(module_alias) for module_alias in SINDRI_MODULES}
+
+
+def _installed_packages_lower() -> set[str]:
+    outcome = run_command("uv pip list --format=json", capture_output=True)
+    if not outcome.success or not outcome.output:
+        return set()
+    try:
+        entries = json.loads(outcome.output)
+        return {str(e.get("name", "")).lower() for e in entries if isinstance(e, dict)}
+    except Exception:
+        return set()
+
+
+def compute_sindri_install_state(
+    *,
+    sindri_modules: dict[str, ModuleStatus],
+) -> dict[str, bool]:
+    installed = _installed_packages_lower()
+    state: dict[str, bool] = {}
+    for alias, status in sindri_modules.items():
+        if status.is_valid and status.module_name:
+            state[alias] = (status.module_name.lower() in installed)
+        else:
+            state[alias] = False
+    return state
+
+
+def format_install_state_summary_arrow(
+    state: dict[str, bool],
+    *,
+    alias_to_name: dict[str, str],
+) -> tuple[str, str]:
+    installed_aliases = sorted([a for a, ok in state.items() if ok])
+    missing_aliases = sorted([a for a, ok in state.items() if not ok])
+    arrow = f" {log_manager.Symbols.RIGHT_ARROW.value} "
+    installed_labels = [a if a == alias_to_name[a] else f"{a}{arrow}{alias_to_name[a]}" for a in installed_aliases]
+    missing_labels = [a if a == alias_to_name[a] else f"{a}{arrow}{alias_to_name[a]}" for a in missing_aliases]
+    dash = log_manager.Symbols.EM_DASH.value
+    return (
+        ", ".join(installed_labels) if installed_labels else dash,
+        ", ".join(missing_labels) if missing_labels else dash,
+    )
 
 
 def get_display_name(
     module_alias: str,
     *,
-    module_statuses: dict[str, ModuleStatus],
+    sindri_modules: dict[str, ModuleStatus],
 ) -> str:
-    module_status = module_statuses[module_alias]
+    module_status = sindri_modules[module_alias]
     return module_status.module_name or module_status.module_path.name.lower().replace("_", "-")
 
 
 def get_display_names(
     module_aliases: list[str],
     *,
-    module_statuses: dict[str, ModuleStatus],
+    sindri_modules: dict[str, ModuleStatus],
 ) -> list[str]:
-    return [get_display_name(module_alias, module_statuses=module_statuses) for module_alias in module_aliases]
+    return [get_display_name(module_alias, sindri_modules=sindri_modules) for module_alias in module_aliases]
 
 
 ##
@@ -180,30 +223,43 @@ def get_display_names(
 ##
 
 
+@dataclass(frozen=True)
+class CommandOutcome:
+    success: bool
+    output: str | None
+
+
 def run_command(
     command: str,
     *,
     working_directory: Path | None = None,
     timeout_seconds: int = 90,
-    show_output: bool = True,
+    capture_output: bool = False,
+    use_shell: bool = False,
     message: str | None = None,
-) -> bool:
+) -> CommandOutcome:
     try:
-        if message:
-            log_manager.log_task(message, show_time=True)
-        shell_manager.execute_shell_command(
+        if message: log_manager.log_task(message, show_time=True)
+        result = shell_manager.execute_shell_command(
             command,
+            working_directory=working_directory,
             timeout_seconds=timeout_seconds,
-            show_output=show_output,
-            working_directory=str(working_directory) if working_directory else None,
+            use_shell=use_shell,
+            capture_output=capture_output,
         )
-        return True
+        return CommandOutcome(
+            success=result.succeeded,
+            output=result.stdout if capture_output else None,
+        )
     except Exception as exception:
         log_manager.log_outcome(
             f"Command failed: {command}\n{exception}",
             outcome=log_manager.ActionOutcome.FAILURE,
         )
-        return False
+        return CommandOutcome(
+            success=False,
+            output=None,
+        )
 
 
 ##
@@ -230,7 +286,7 @@ def ensure_project_root(
 def render_status_hint_block(
     target_dir: Path,
     *,
-    module_statuses: dict[str, ModuleStatus],
+    sindri_modules: dict[str, ModuleStatus],
 ) -> None:
     try:
         project_name = read_project_name(target_dir)
@@ -238,8 +294,8 @@ def render_status_hint_block(
         project_name = None
     rows: list[tuple[str, str | None, str]] = []
     width_candidates: list[str] = []
-    for module_alias in sorted(module_statuses):
-        module_status = module_statuses[module_alias]
+    for module_alias in sorted(sindri_modules):
+        module_status = sindri_modules[module_alias]
         if module_status.is_valid and module_status.module_name:
             name = module_status.module_name
             error_message = None
@@ -290,22 +346,23 @@ def self_install_project_status(target_dir: Path, dry_run: bool) -> bool:
             notes={"project-path": str(target_dir)},
         )
         return True
-    succeeded = run_command(
+    result = run_command(
         command,
         working_directory=target_dir,
+        capture_output=False,
         message=f"Installing project: {project_name}",
     )
     log_manager.log_empty_lines(lines=1)
     log_manager.log_action(
         title=title,
-        succeeded=succeeded,
+        succeeded=result.success,
         message=f"Command: {command}",
         notes={
             "project-name": project_name,
             "project-path": str(target_dir),
         },
     )
-    return succeeded
+    return result.success
 
 
 def self_uninstall_project_status(target_dir: Path, dry_run: bool) -> bool:
@@ -323,22 +380,23 @@ def self_uninstall_project_status(target_dir: Path, dry_run: bool) -> bool:
             },
         )
         return True
-    succeeded = run_command(
+    result = run_command(
         command,
         working_directory=target_dir,
+        capture_output=False,
         message=f"Uninstalling project: {project_name}",
     )
     log_manager.log_empty_lines(lines=1)
     log_manager.log_action(
         title=title,
-        succeeded=succeeded,
+        succeeded=result.success,
         message=f"Command: {command}",
         notes={
             "project-name": project_name,
             "project-path": str(target_dir),
         },
     )
-    return succeeded
+    return result.success
 
 
 def install_module_to_project(
@@ -346,9 +404,9 @@ def install_module_to_project(
     module_alias: str,
     dry_run: bool,
     *,
-    module_statuses: dict[str, ModuleStatus],
+    sindri_modules: dict[str, ModuleStatus],
 ) -> bool:
-    module_status = module_statuses[module_alias]
+    module_status = sindri_modules[module_alias]
     module_local_path = module_status.module_path
     if not module_status.is_valid or not module_status.module_name:
         log_manager.log_action(
@@ -399,15 +457,16 @@ def install_module_to_project(
             },
         )
         return True
-    succeeded = run_command(
+    result = run_command(
         command,
         working_directory=target_dir,
+        capture_output=False,
         message=f"Installing `{module_name}` module",
     )
     log_manager.log_empty_lines(lines=1)
     log_manager.log_action(
         title=f"Installed `{module_name}`",
-        succeeded=succeeded,
+        succeeded=result.success,
         message=f"Command: {command}",
         notes={
             "module-name": module_name,
@@ -415,7 +474,7 @@ def install_module_to_project(
             "target-project": str(target_dir),
         },
     )
-    return succeeded
+    return result.success
 
 
 def uninstall_module_from_project(
@@ -423,9 +482,9 @@ def uninstall_module_from_project(
     module_alias: str,
     dry_run: bool,
     *,
-    module_statuses: dict[str, ModuleStatus],
+    sindri_modules: dict[str, ModuleStatus],
 ) -> bool:
-    module_status = module_statuses[module_alias]
+    module_status = sindri_modules[module_alias]
     module_local_path = module_status.module_path
     if not module_status.is_valid or not module_status.module_name:
         log_manager.log_action(
@@ -453,15 +512,16 @@ def uninstall_module_from_project(
             },
         )
         return True
-    succeeded = run_command(
+    result = run_command(
         command,
         working_directory=target_dir,
+        capture_output=False,
         message=f"Uninstalling `{module_name}` module",
     )
     log_manager.log_empty_lines(lines=1)
     log_manager.log_action(
         title=title,
-        succeeded=succeeded,
+        succeeded=result.success,
         message=f"Command: {command}",
         notes={
             "module-name": module_name,
@@ -469,7 +529,7 @@ def uninstall_module_from_project(
             "target-project": str(target_dir),
         },
     )
-    return succeeded
+    return result.success
 
 
 ##
@@ -540,9 +600,9 @@ class LinkModules:
         self.do_self_uninstall: bool = False
         self.show_stutus_hint: bool = False
         self.is_dry_run: bool = False
+        self.sindri_modules: dict[str, ModuleStatus] = {}
+        self.action_plan = PlannedInfo()
         self.results = ResultsSummary()
-        self.module_statuses: dict[str, ModuleStatus] = {}
-        self.plan = PlannedInfo()
 
     def parse_and_verify_args(
         self,
@@ -565,7 +625,7 @@ class LinkModules:
                 outcome=log_manager.ActionOutcome.FAILURE,
             )
             sys.exit(1)
-        self.module_statuses = get_sindri_module_status()
+        self.sindri_modules = verify_sindri_modules()
         self.modules_to_install = [
             module_alias for module_alias in sorted(SINDRI_MODULES) if getattr(self.user_args, module_alias)
         ]
@@ -578,28 +638,33 @@ class LinkModules:
         self.is_dry_run = bool(self.user_args.dry_run)
         validated_modules_to_install: list[str] = []
         for module_alias in self.modules_to_install:
-            module_status = self.module_statuses[module_alias]
+            module_status = self.sindri_modules[module_alias]
             if module_status.is_valid:
                 validated_modules_to_install.append(module_alias)
             else:
-                self.results.broken_modules.append((module_alias, str(module_status.reason)))
+                self.results.broken_aliases.append((module_alias, str(module_status.reason)))
         self.modules_to_install = validated_modules_to_install
-        self.plan.install_aliases = list(self.modules_to_install)
-        self.plan.uninstall_aliases = list(self.modules_to_uninstall)
-        self.plan.install_names = get_display_names(
+        self.action_plan.install_aliases = list(self.modules_to_install)
+        self.action_plan.uninstall_aliases = list(self.modules_to_uninstall)
+        self.action_plan.install_names = get_display_names(
             self.modules_to_install,
-            module_statuses=self.module_statuses,
+            sindri_modules=self.sindri_modules,
         )
-        self.plan.uninstall_names = get_display_names(
+        self.action_plan.uninstall_names = get_display_names(
             self.modules_to_uninstall,
-            module_statuses=self.module_statuses,
+            sindri_modules=self.sindri_modules,
         )
-        self.plan.alias_to_name = {
-            alias: get_display_name(alias, module_statuses=self.module_statuses)
+        self.action_plan.alias_to_name = {
+            alias: get_display_name(alias, sindri_modules=self.sindri_modules)
             for alias in sorted(SINDRI_MODULES)
         }
-        planned_installs = list_or_dash(self.plan.install_names)
-        planned_uninstalls = list_or_dash(self.plan.uninstall_names)
+        current_state = compute_sindri_install_state(sindri_modules=self.sindri_modules)
+        installed_line, missing_line = format_install_state_summary_arrow(
+            current_state,
+            alias_to_name=self.action_plan.alias_to_name,
+        )
+        planned_installs = list_or_dash(self.action_plan.install_names)
+        planned_uninstalls = list_or_dash(self.action_plan.uninstall_names)
         notes: dict[str, Any] = {
             "target-project": str(target_dir),
             "self-install": self.do_self_install,
@@ -608,17 +673,19 @@ class LinkModules:
             "uninstalls": planned_uninstalls,
             "status": self.show_stutus_hint,
             "dry-run": self.is_dry_run,
+            "already-installed": installed_line,
+            "not-installed": missing_line,
         }
-        if self.results.broken_modules:
-            broken_readable = ", ".join(
+        if self.results.broken_aliases:
+            broken_aliases = ", ".join(
                 f"{module_alias} {log_manager.Symbols.RIGHT_ARROW.value} "
-                f"{get_display_name(module_alias, module_statuses=self.module_statuses)}[{reason}]"
-                for module_alias, reason in self.results.broken_modules
+                f"{get_display_name(module_alias, sindri_modules=self.sindri_modules)}[{reason}]"
+                for module_alias, reason in self.results.broken_aliases
             )
-            self.plan.broken_readable = broken_readable
-            notes["requested-broken-modules"] = broken_readable
+            self.action_plan.broken_aliases = broken_aliases
+            notes["requested-broken-modules"] = broken_aliases
         else:
-            self.plan.broken_readable = "none"
+            self.action_plan.broken_aliases = "none"
         log_manager.log_context(
             title="Planned Actions",
             notes=notes,
@@ -632,7 +699,7 @@ class LinkModules:
         modules_to_reinstall = set(self.modules_to_uninstall) & set(self.modules_to_install)
         if modules_to_reinstall:
             list_of_modules = ", ".join(
-                sorted(get_display_name(alias, module_statuses=self.module_statuses) for alias in modules_to_reinstall),
+                sorted(get_display_name(alias, sindri_modules=self.sindri_modules) for alias in modules_to_reinstall),
             )
             log_manager.log_note(
                 f"Reinstall will occur for: {list_of_modules} "
@@ -650,7 +717,7 @@ class LinkModules:
                 self.target_dir,
                 module_alias,
                 self.is_dry_run,
-                module_statuses=self.module_statuses,
+                sindri_modules=self.sindri_modules,
             )
             self.results.uninstalled_modules.append((module_alias, successful))
         if self.do_self_uninstall:
@@ -668,20 +735,20 @@ class LinkModules:
                 self.target_dir,
                 module_alias,
                 self.is_dry_run,
-                module_statuses=self.module_statuses,
+                sindri_modules=self.sindri_modules,
             )
             self.results.installed_modules.append((module_alias, successful))
         if self.show_stutus_hint:
-            render_status_hint_block(self.target_dir, module_statuses=self.module_statuses)
+            render_status_hint_block(self.target_dir, sindri_modules=self.sindri_modules)
 
     def summarise_and_exit(self) -> None:
         failed_uninstalls = [
-            self.plan.alias_to_name[module_alias]
+            self.action_plan.alias_to_name[module_alias]
             for (module_alias, successful) in self.results.uninstalled_modules
             if not successful
         ]
         failed_installs = [
-            self.plan.alias_to_name[module_alias]
+            self.action_plan.alias_to_name[module_alias]
             for (module_alias, successful) in self.results.installed_modules
             if not successful
         ]
@@ -693,11 +760,11 @@ class LinkModules:
             notes={
                 "project-install": format_optional_outcome(install_project_status),
                 "project-uninstall": format_optional_outcome(uninstall_project_status),
-                "module-uninstalls": format_batch_outcome(self.plan.uninstall_aliases, failed_uninstalls),
-                "module-installs": format_batch_outcome(self.plan.install_aliases, failed_installs),
-                "planned-installs": list_or_dash(self.plan.install_names),
-                "planned-uninstalls": list_or_dash(self.plan.uninstall_names),
-                "requested-broken-modules": self.plan.broken_readable,
+                "module-uninstalls": format_batch_outcome(self.action_plan.uninstall_aliases, failed_uninstalls),
+                "module-installs": format_batch_outcome(self.action_plan.install_aliases, failed_installs),
+                "planned-installs": list_or_dash(self.action_plan.install_names),
+                "planned-uninstalls": list_or_dash(self.action_plan.uninstall_names),
+                "requested-broken-modules": self.action_plan.broken_aliases,
             },
         )
         status_summary: list[bool] = []
