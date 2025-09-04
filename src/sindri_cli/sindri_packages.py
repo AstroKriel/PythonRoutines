@@ -42,14 +42,6 @@ PackageName = str
 
 
 @dataclass
-class OutcomeSummary:
-    install_self: bool | None = None
-    uninstall_self: bool | None = None
-    packages_installed: list[tuple[AliasName, bool]] = field(default_factory=list)
-    packages_uninstalled: list[tuple[AliasName, bool]] = field(default_factory=list)
-
-
-@dataclass
 class PackageStatus:
     is_valid: bool
     package_alias: AliasName
@@ -57,6 +49,14 @@ class PackageStatus:
     package_name: PackageName | None
     reason: str | None
     is_installed: bool = False
+
+
+@dataclass
+class OutcomeSummary:
+    install_self: bool | None = None
+    uninstall_self: bool | None = None
+    packages_installed: list[tuple[AliasName, bool]] = field(default_factory=list)
+    packages_uninstalled: list[tuple[AliasName, bool]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -115,6 +115,13 @@ def format_list(
         return log_manager.Symbols.EM_DASH.value
 
 
+def format_path(
+    path: Path,
+) -> str:
+    hooked_arrow = log_manager.Symbols.HOOKED_ARROW.value
+    return f"\n\t{hooked_arrow} {path}"
+
+
 ##
 ## === PYPROJECT / SHELL HELPERS ===
 ##
@@ -166,11 +173,11 @@ def read_package_name(
         pyproject = tomllib.load(fp)
     package_name = pyproject.get("project", {}).get("name")
     if not package_name or not isinstance(package_name, str):
-        raise ValueError(f"Could not determine package name from: {pyproject_path}")
+        raise ValueError(f"Could not determine package name from: {format_path(pyproject_path)}")
     return package_name.lower()
 
 
-def verify_sindri_package(
+def get_package_status(
     package_alias: AliasName,
 ) -> PackageStatus:
     package_path = SINDRI_PACKAGES[package_alias].resolve()
@@ -249,7 +256,7 @@ def ensure_package_root(
     venv_path = target_dir / ".venv"
     if not venv_path.exists() or not venv_path.is_dir():
         raise FileNotFoundError(
-            f"No virtual-environment directory found under: {venv_path}\n"
+            f"No virtual-environment directory was found under: {format_path(venv_path)}\n"
             "Create with: `uv venv`.",
         )
 
@@ -373,7 +380,7 @@ def install_package(
         message = "Failed. Package path does not exist."
         succeeded = False
     elif package_status.package_path.resolve() == target_dir.resolve():
-        message = "Failed. Refused to install package into itself."
+        message = "Failed. Refused to install package into itself; pass the `--self-install` flag instead."
         succeeded = False
     else:
         command_outcome = run_command(
@@ -447,12 +454,12 @@ def parse_args():
     parser.add_argument(
         "--self-install",
         action="store_true",
-        help="Editable install of the package itself",
+        help="Editable install of the project package",
     )
     parser.add_argument(
         "--self-uninstall",
         action="store_true",
-        help="Uninstall the package editable install",
+        help="Uninstall the project package",
     )
     parser.add_argument(
         "--status",
@@ -460,16 +467,16 @@ def parse_args():
         help="Check sindri package status",
     )
     for package_alias in sorted(SINDRI_PACKAGES):
-        package_pretty = SINDRI_PACKAGES[package_alias].name
+        package_path = SINDRI_PACKAGES[package_alias]
         parser.add_argument(
             f"--{package_alias}",
             action="store_true",
-            help=f"Install package `{package_pretty}`",
+            help=f"Install package: {package_path}",
         )
         parser.add_argument(
             f"--no-{package_alias}",
             action="store_true",
-            help=f"Uninstall package `{package_pretty}`",
+            help=f"Uninstall package: {package_path}",
         )
     return parser.parse_args()
 
@@ -500,11 +507,11 @@ class LinkPackages:
     ) -> None:
         target_dir = self.user_args.target_dir.resolve()
         if not target_dir.exists():
-            raise FileNotFoundError(f"Target package directory does not exist: {target_dir}")
+            raise FileNotFoundError(f"Target package directory does not exist: {format_path(target_dir)}")
         pyproject_path = target_dir / "pyproject.toml"
         if not pyproject_path.exists():
             log_manager.log_outcome(
-                f"No pyproject.toml found in {target_dir}",
+                f"No pyproject.toml found under: {format_path(target_dir)}",
                 outcome=log_manager.ActionOutcome.FAILURE,
             )
             sys.exit(1)
@@ -585,7 +592,7 @@ class LinkPackages:
     ) -> None:
         self._validate_package_root()
         self.sindri_packages = {
-            package_alias: verify_sindri_package(package_alias)
+            package_alias: get_package_status(package_alias)
             for package_alias in SINDRI_PACKAGES
         }
         update_installed_status(sindri_packages=self.sindri_packages)
@@ -603,6 +610,13 @@ class LinkPackages:
                 sindri_packages=self.sindri_packages,
             )
             self.outcome_summary.packages_uninstalled.append((package_alias, success))
+        for package_alias in self.aliases_to_install:
+            success = install_package(
+                target_dir=self.target_dir,
+                package_alias=package_alias,
+                sindri_packages=self.sindri_packages,
+            )
+            self.outcome_summary.packages_installed.append((package_alias, success))
         if self.do_self_uninstall:
             self.outcome_summary.uninstall_self = uninstall_self(
                 target_dir=self.target_dir,
@@ -611,13 +625,6 @@ class LinkPackages:
             self.outcome_summary.install_self = install_self(
                 target_dir=self.target_dir,
             )
-        for package_alias in self.aliases_to_install:
-            success = install_package(
-                target_dir=self.target_dir,
-                package_alias=package_alias,
-                sindri_packages=self.sindri_packages,
-            )
-            self.outcome_summary.packages_installed.append((package_alias, success))
         update_installed_status(sindri_packages=self.sindri_packages)
         if self.show_sindri_status:
             print_sindri_status(sindri_packages=self.sindri_packages)
