@@ -61,7 +61,7 @@ class OutcomeSummary:
 
 @dataclass(frozen=True)
 class CommandOutcome:
-    success: bool
+    succeeded: bool
     output: str | None
 
 
@@ -91,9 +91,9 @@ def format_success_and_failure(
 ) -> tuple[list[str], list[str]]:
     succeeded: list[str] = []
     failed: list[str] = []
-    for package_alias, success in results:
+    for package_alias, action_status in results:
         package_label = format_package_label(sindri_packages[package_alias])
-        (succeeded if success else failed).append(package_label)
+        (succeeded if action_status else failed).append(package_label)
     return succeeded, failed
 
 
@@ -146,8 +146,8 @@ def run_command(
             capture_output=capture_output,
         )
         return CommandOutcome(
-            success=result.succeeded,
-            output=result.stdout if capture_output else None,
+            succeeded=result.succeeded,
+            output=result.stdout,
         )
     except Exception as exception:
         log_manager.log_outcome(
@@ -155,7 +155,7 @@ def run_command(
             outcome=log_manager.ActionOutcome.FAILURE,
         )
         return CommandOutcome(
-            success=False,
+            succeeded=False,
             output=None,
         )
 
@@ -228,7 +228,7 @@ def update_installed_status(
 ) -> None:
     command_outcome = run_command("uv pip list --format=json", capture_output=True)
     packages_installed: set[str] = set()
-    if command_outcome.success and command_outcome.output:
+    if command_outcome.succeeded and command_outcome.output:
         try:
             entries = json.loads(command_outcome.output)
             packages_installed = {
@@ -321,7 +321,7 @@ def install_self(
     )
     log_manager.log_empty_lines()
     message = f"Command: {command}"
-    succeeded = command_outcome.success
+    succeeded = command_outcome.succeeded
     log_manager.log_action(
         title=f"Install `{package_name}`",
         succeeded=succeeded,
@@ -345,7 +345,7 @@ def uninstall_self(
     )
     log_manager.log_empty_lines()
     message = f"Command: {command}"
-    succeeded = command_outcome.success
+    succeeded = command_outcome.succeeded
     log_manager.log_action(
         title=f"Uninstall `{package_name}`",
         succeeded=succeeded,
@@ -391,7 +391,7 @@ def install_package(
         )
         log_manager.log_empty_lines()
         message = f"Command: {command}"
-        succeeded = command_outcome.success
+        succeeded = command_outcome.succeeded
     log_manager.log_action(
         title=f"Install `{format_package_label(package_status)}`",
         succeeded=succeeded,
@@ -429,7 +429,7 @@ def uninstall_package(
         )
         log_manager.log_empty_lines()
         message = f"Command: {command}"
-        succeeded = command_outcome.success
+        succeeded = command_outcome.succeeded
     log_manager.log_action(
         title=f"Uninstall `{format_package_label(package_status)}`",
         succeeded=succeeded,
@@ -604,19 +604,19 @@ class LinkPackages:
     ) -> None:
         assert self.target_dir is not None
         for package_alias in self.aliases_to_uninstall:
-            success = uninstall_package(
+            succeeded = uninstall_package(
                 target_dir=self.target_dir,
                 package_alias=package_alias,
                 sindri_packages=self.sindri_packages,
             )
-            self.outcome_summary.packages_uninstalled.append((package_alias, success))
+            self.outcome_summary.packages_uninstalled.append((package_alias, succeeded))
         for package_alias in self.aliases_to_install:
-            success = install_package(
+            succeeded = install_package(
                 target_dir=self.target_dir,
                 package_alias=package_alias,
                 sindri_packages=self.sindri_packages,
             )
-            self.outcome_summary.packages_installed.append((package_alias, success))
+            self.outcome_summary.packages_installed.append((package_alias, succeeded))
         if self.do_self_uninstall:
             self.outcome_summary.uninstall_self = uninstall_self(
                 target_dir=self.target_dir,
@@ -657,8 +657,8 @@ class LinkPackages:
             summary_status.append(self.outcome_summary.install_self)
         if self.outcome_summary.uninstall_self is not None:
             summary_status.append(self.outcome_summary.uninstall_self)
-        summary_status.extend(success for (_, success) in self.outcome_summary.packages_uninstalled)
-        summary_status.extend(success for (_, success) in self.outcome_summary.packages_installed)
+        summary_status.extend(succeeded for (_, succeeded) in self.outcome_summary.packages_uninstalled)
+        summary_status.extend(succeeded for (_, succeeded) in self.outcome_summary.packages_installed)
         sys.exit(0 if all(summary_status) else 1)
 
     def run(
