@@ -42,22 +42,18 @@ PackageName = str
 
 
 @dataclass
-class PlannedSummary:
-    install_aliases: list[AliasName] = field(default_factory=list)
-    uninstall_aliases: list[AliasName] = field(default_factory=list)
+class PlannedActions:
     install_names: list[PackageName] = field(default_factory=list)
     uninstall_names: list[PackageName] = field(default_factory=list)
-    broken_aliases: str = "none"
-    alias_to_name: dict[AliasName, PackageName] = field(default_factory=dict)
 
 
 @dataclass
-class ResultsSummary:
-    uninstalled_packages: list[tuple[AliasName, bool]] = field(default_factory=list)
-    installed_packages: list[tuple[AliasName, bool]] = field(default_factory=list)
+class OutcomeSummary:
+    install_self: bool | None = None
+    uninstall_self: bool | None = None
+    uninstalled_packages: list[tuple[AliasName, bool | None]] = field(default_factory=list)
+    installed_packages: list[tuple[AliasName, bool | None]] = field(default_factory=list)
     broken_aliases: list[tuple[AliasName, str]] = field(default_factory=list)
-    self_install: bool | None = None
-    self_uninstall: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -80,65 +76,56 @@ class CommandOutcome:
 ##
 
 
-def arrow_label(
-    alias: AliasName,
-    name: PackageName,
+def format_package_alias(
+    package_alias: AliasName,
+    package_name: PackageName | None = None,
 ) -> str:
-    return alias if (alias == name) else f"{alias} {log_manager.Symbols.RIGHT_ARROW.value} {name}"
+    if (package_name is None) or (package_alias == package_name):
+        return package_alias
+    else:
+        return f"{package_alias} {log_manager.Symbols.RIGHT_ARROW.value} {package_name}"
 
 
 def format_optional_outcome(
-    flag: bool | None,
+    outcome: bool | None,
 ) -> str:
-    return (log_manager.Symbols.EM_DASH.value if (flag is None) else ("succeeded" if flag else "failed"))
-
-
-def format_batch_outcome(
-    requested_aliases: list[AliasName],
-    failed_package_names: list[PackageName],
-) -> str:
-    if not requested_aliases:
+    if outcome is None:
         return log_manager.Symbols.EM_DASH.value
-    return "all succeeded" if not failed_package_names else f"failed: {', '.join(failed_package_names)}"
+    elif outcome:
+        return "succeeded"
+    else:
+        return "failed"
 
 
-def split_success_failure(
-    results: list[tuple[AliasName, bool]],
+def format_list(items: list[str]) -> str:
+    if items:
+        return ", ".join(items)
+    else:
+        return log_manager.Symbols.EM_DASH.value
+
+
+def split_success_and_failure(
     *,
-    alias_to_name: dict[AliasName, PackageName],
-    failure_reasons: dict[AliasName, str] | None = None,
+    results: list[tuple[AliasName, bool | None]],
+    sindri_packages: dict[AliasName, PackageStatus],
 ) -> tuple[list[PackageName], list[PackageName]]:
     succeeded: list[PackageName] = []
     failed: list[PackageName] = []
-    for alias, success in results:
-        name = alias_to_name.get(alias, alias)
+    for package_alias, success in results:
+        if success is None: continue
+        status = sindri_packages[package_alias]
+        package_name = status.package_name or package_alias
         if success:
-            succeeded.append(name)
+            succeeded.append(package_name)
         else:
-            reason = (failure_reasons or {}).get(alias)
-            failed.append(name if not reason else f"{name}[{reason}]")
+            reason = status.reason if not status.is_valid else None
+            failed.append(package_name if not reason else f"{package_name}[{reason}]")
     return succeeded, failed
-
-
-def list_or_dash(items: list[str]) -> str:
-    return ", ".join(items) if items else log_manager.Symbols.EM_DASH.value
 
 
 ##
 ## === PYPROJECT / SHELL HELPERS ===
 ##
-
-
-def read_package_name(
-    target_dir: Path,
-) -> str:
-    pyproject_path = target_dir / "pyproject.toml"
-    with pyproject_path.open("rb") as fp:
-        pyproject = tomllib.load(fp)
-    package_name = pyproject.get("project", {}).get("name")
-    if not package_name or not isinstance(package_name, str):
-        raise ValueError(f"Could not determine package name from: {pyproject_path}")
-    return package_name.lower()
 
 
 def run_command(
@@ -169,7 +156,10 @@ def run_command(
             f"Command failed: {command}\n{exception}",
             outcome=log_manager.ActionOutcome.FAILURE,
         )
-        return CommandOutcome(success=False, output=None)
+        return CommandOutcome(
+            success=False,
+            output=None,
+        )
 
 
 ##
@@ -217,25 +207,16 @@ def verify_sindri_package(
         )
 
 
-def verify_sindri_packages() -> dict[AliasName, PackageStatus]:
-    return {package_alias: verify_sindri_package(package_alias) for package_alias in SINDRI_PACKAGES}
-
-
-def get_package_name(
-    package_alias: AliasName,
-    *,
-    sindri_packages: dict[AliasName, PackageStatus],
-) -> PackageName:
-    package_status = sindri_packages[package_alias]
-    return package_status.package_name or package_alias
-
-
-def get_package_names(
-    package_aliases: list[AliasName],
-    *,
-    sindri_packages: dict[AliasName, PackageStatus],
-) -> list[PackageName]:
-    return [get_package_name(package_alias, sindri_packages=sindri_packages) for package_alias in package_aliases]
+def read_package_name(
+    target_dir: Path,
+) -> str:
+    pyproject_path = target_dir / "pyproject.toml"
+    with pyproject_path.open("rb") as fp:
+        pyproject = tomllib.load(fp)
+    package_name = pyproject.get("project", {}).get("name")
+    if not package_name or not isinstance(package_name, str):
+        raise ValueError(f"Could not determine package name from: {pyproject_path}")
+    return package_name.lower()
 
 
 ##
@@ -243,41 +224,47 @@ def get_package_names(
 ##
 
 
-def _installed_packages_lower() -> set[str]:
-    outcome = run_command("uv pip list --format=json", capture_output=True)
-    if not outcome.success or not outcome.output:
-        return set()
-    try:
-        entries = json.loads(outcome.output)
-        return {str(entry.get("name", "")).lower() for entry in entries if isinstance(entry, dict)}
-    except Exception:
-        return set()
-
-
-def compute_sindri_install_state(
+def get_installed_state(
     *,
     sindri_packages: dict[AliasName, PackageStatus],
 ) -> dict[AliasName, bool]:
-    installed = _installed_packages_lower()
+    outcome = run_command("uv pip list --format=json", capture_output=True)
+    installed_packages: set[str] = set()
+    if outcome.success and outcome.output:
+        try:
+            entries = json.loads(outcome.output)
+            installed_packages = {
+                str(entry.get("name", "")).lower()
+                for entry in entries
+                if isinstance(entry, dict)
+            }
+        except Exception:
+            installed_packages = set()
     state: dict[AliasName, bool] = {}
-    for alias, status in sindri_packages.items():
-        if status.is_valid and status.package_name:
-            state[alias] = (status.package_name.lower() in installed)
-        else:
-            state[alias] = False
+    for package_alias, status in sindri_packages.items():
+        state[package_alias] = bool(
+            status.is_valid and status.package_name
+            and status.package_name.lower() in installed_packages,
+        )
     return state
 
 
-def format_install_state_summary_arrow(
+def format_installed_state(
     state: dict[AliasName, bool],
     *,
-    alias_to_name: dict[AliasName, PackageName],
+    sindri_packages: dict[AliasName, PackageStatus],
 ) -> tuple[str, str]:
     dash = log_manager.Symbols.EM_DASH.value
     installed_aliases = sorted([alias_name for (alias_name, success) in state.items() if success])
     missing_aliases = sorted([alias_name for (alias_name, success) in state.items() if not success])
-    installed_labels = [arrow_label(alias_name, alias_to_name[alias_name]) for alias_name in installed_aliases]
-    missing_labels = [arrow_label(alias_name, alias_to_name[alias_name]) for alias_name in missing_aliases]
+    installed_labels = [
+        format_package_alias(alias_name, sindri_packages[alias_name].package_name)
+        for alias_name in installed_aliases
+    ]
+    missing_labels = [
+        format_package_alias(alias_name, sindri_packages[alias_name].package_name)
+        for alias_name in missing_aliases
+    ]
     return (
         ", ".join(installed_labels) if installed_labels else dash,
         ", ".join(missing_labels) if missing_labels else dash,
@@ -296,7 +283,7 @@ def ensure_package_root(
     if not venv_path.exists() or not venv_path.is_dir():
         raise FileNotFoundError(
             f"No virtual-environment directory found under: {venv_path}\n"
-            "Create once with: `uv venv`.",
+            "Create with: `uv venv`.",
         )
 
 
@@ -305,48 +292,41 @@ def ensure_package_root(
 ##
 
 
-def render_status_hint_block(
-    target_dir: Path,
+def print_sindri_status(
     *,
     sindri_packages: dict[AliasName, PackageStatus],
+    sindri_installed_state: dict[AliasName, bool],
 ) -> None:
-    try:
-        package_name = read_package_name(target_dir)
-    except Exception:
-        package_name = None
-    rows: list[tuple[str, str | None, str]] = []
-    width_candidates: list[str] = []
+    rows: list[tuple[str, str, str]] = []
     for package_alias in sorted(sindri_packages):
-        package_status = sindri_packages[package_alias]
-        if package_status.is_valid and package_status.package_name:
-            name = package_status.package_name
-            error_message = None
-            hint = f"uv pip show {name}"
+        status = sindri_packages[package_alias]
+        label = format_package_alias(package_alias, status.package_name)
+        if not status.is_valid:
+            state_text = f"broken[{status.reason}]"
+            detail = f"{log_manager.Symbols.HOOKED_ARROW.value} path: {status.package_path}"
         else:
-            name = package_status.package_path.name.lower().replace("_", "-")
-            error_message = f"BROKEN[{package_status.reason}]"
-            hint = f"{log_manager.Symbols.HOOKED_ARROW.value} inspect: {package_status.package_path}"
-        width_candidates.append(name)
-        rows.append((name, error_message, hint))
-    column_width = max((len(n) for n in width_candidates), default=8)
-    lines = [
-        f"{name:<{column_width}} : {hint}" if
-        (error_message is None) else f"{name:<{column_width}} : {error_message:>12} \n\t{hint}"
-        for (name, error_message, hint) in rows
-    ]
-    num_broken_packages = sum(1 for _, package_status_text, _ in rows if package_status_text is not None)
-    num_valid_packages = len(rows) - num_broken_packages
+            is_installed = bool(sindri_installed_state.get(package_alias, False))
+            state_text = "installed" if is_installed else "not installed"
+            detail = f"{log_manager.Symbols.HOOKED_ARROW.value} path: {status.package_path}"
+        rows.append((label, state_text, detail))
     notes: dict[str, str] = {
-        "all packages": "uv pip list  (check the third column)",
-        "package path": str(target_dir),
-        "sindri packages": "\n\t" + "\n\t".join(lines),
-        "summary": f"OK={num_valid_packages}, BROKEN={num_broken_packages}",
+        label: f"{state}\n{4 * ' '}{detail}"
+        for (label, state, detail) in rows
     }
-    if package_name:
-        notes["this package"] = f"uv pip show {package_name}"
+    num_broken = sum(
+        1 for package_alias in sindri_packages if not sindri_packages[package_alias].is_valid
+    )
+    num_valid = len(sindri_packages) - num_broken
+    num_installed = sum(
+        1 for package_alias in sindri_packages if sindri_packages[package_alias].is_valid
+        and sindri_installed_state.get(package_alias, False)
+    )
+    num_missing = max(num_valid - num_installed, 0)
+    notes["summary"
+          ] = f"installed={num_installed}, not-installed={num_missing}, broken={num_broken}"
     log_manager.log_context(
-        title="Package Status",
-        message="Run any of the above to inspect editable installs (broken items are listed with alias_name reason).",
+        title="Sindri Packages",
+        message="Sindri packages and their install state in this project.",
         notes=notes,
     )
 
@@ -356,210 +336,164 @@ def render_status_hint_block(
 ##
 
 
-def self_install_package(
+def install_self(
+    *,
     target_dir: Path,
     dry_run: bool,
-) -> bool:
+) -> bool | None:
     package_name = read_package_name(target_dir)
     command = "uv pip install -e ."
-    title = "Install package"
+    notes = {
+        "package-name": package_name,
+        "package-path": str(target_dir),
+    }
     if dry_run:
-        log_manager.log_action(
-            title=title,
-            succeeded=None,
-            message="[dry-run] Would run: uv pip install -e .",
-            notes={
-                "package-path": str(target_dir),
-            },
+        message = "[dry-run] Would run: uv pip install -e ."
+        succeeded = None
+    else:
+        outcome = run_command(
+            command,
+            message=f"Installing `{package_name}` package",
+            working_directory=target_dir,
+            capture_output=False,
         )
-        return True
-    result = run_command(
-        command,
-        working_directory=target_dir,
-        capture_output=False,
-        message=f"Installing package: {package_name}",
-    )
-    log_manager.log_empty_lines(lines=1)
+        log_manager.log_empty_lines()
+        message = f"Command: {command}"
+        succeeded = outcome.success
     log_manager.log_action(
-        title=title,
-        succeeded=result.success,
-        message=f"Command: {command}",
-        notes={
-            "package-name": package_name,
-            "package-path": str(target_dir),
-        },
+        title=f"Install `{package_name}`",
+        succeeded=succeeded,
+        message=message,
+        notes=notes,
     )
-    return result.success
+    return succeeded
 
 
-def self_uninstall_package(
+def uninstall_self(
+    *,
     target_dir: Path,
     dry_run: bool,
-) -> bool:
+) -> bool | None:
     package_name = read_package_name(target_dir)
     command = f"uv pip uninstall {package_name}"
-    title = "Uninstall package"
     if dry_run:
-        log_manager.log_action(
-            title=title,
-            succeeded=None,
-            message=f"[dry-run] Would run: {command}",
-            notes={
-                "package-name": package_name,
-                "package-path": str(target_dir),
-            },
+        message = f"[dry-run] Would run: {command}"
+        succeeded = None
+    else:
+        outcome = run_command(
+            command,
+            message=f"Uninstalling `{package_name}` package",
+            working_directory=target_dir,
+            capture_output=False,
         )
-        return True
-    result = run_command(
-        command,
-        working_directory=target_dir,
-        capture_output=False,
-        message=f"Uninstalling package: {package_name}",
-    )
-    log_manager.log_empty_lines(lines=1)
+        log_manager.log_empty_lines()
+        message = f"Command: {command}"
+        succeeded = outcome.success
     log_manager.log_action(
-        title=title,
-        succeeded=result.success,
-        message=f"Command: {command}",
+        title=f"Uninstall `{package_name}`",
+        succeeded=succeeded,
+        message=message,
         notes={
             "package-name": package_name,
             "package-path": str(target_dir),
         },
     )
-    return result.success
+    return succeeded
 
 
 def install_package(
+    *,
     target_dir: Path,
     package_alias: AliasName,
     dry_run: bool,
-    *,
     sindri_packages: dict[AliasName, PackageStatus],
-) -> bool:
+) -> bool | None:
     package_status = sindri_packages[package_alias]
-    package_local_path = package_status.package_path
-    if not package_status.is_valid or not package_status.package_name:
-        log_manager.log_action(
-            title=f"Install `{package_alias}`",
-            succeeded=False,
-            message=f"Failed. Broken package: {package_status.reason}.",
-            notes={
-                "package-alias": package_alias,
-                "package-path": str(package_local_path),
-                "reason": package_status.reason,
-            },
-        )
-        return False
     package_name = package_status.package_name
-    command = f'uv pip install -e "{package_local_path}"'
-    title = f"Install `{package_name}`"
-    if not package_local_path.exists():
-        log_manager.log_action(
-            title=title,
-            succeeded=False,
-            message="Failed. Package path does not exist.",
-            notes={
-                "package-name": package_name,
-                "package-path": str(package_local_path),
-            },
+    package_path = package_status.package_path
+    title = f"Install `{format_package_alias(package_alias, package_name)}`"
+    notes = {
+        "package-alias": package_alias,
+        "package-name": package_name,
+        "package-path": str(package_path),
+        "target-package": str(target_dir),
+    }
+    command = f'uv pip install -e "{package_path}"'
+    succeeded: bool | None
+    if not (package_status.is_valid and package_name):
+        notes["reason"] = str(package_status.reason)
+        message = f"Failed. Broken package: {package_status.reason}."
+        succeeded = False
+    elif not package_path.exists():
+        message = "Failed. Package path does not exist."
+        succeeded = False
+    elif package_path.resolve() == target_dir.resolve():
+        message = "Failed. Refused to install package into itself."
+        succeeded = False
+    elif dry_run:
+        message = f"[dry-run] Would run: {command}"
+        succeeded = None
+    else:
+        outcome = run_command(
+            command,
+            working_directory=target_dir,
+            capture_output=False,
+            message=f"Installing `{package_name}` package",
         )
-        return False
-    if package_local_path == target_dir.resolve():
-        log_manager.log_action(
-            title=title,
-            succeeded=False,
-            message="Failed. Refused to install package into itself.",
-            notes={
-                "package-name": package_name,
-                "package-path": str(package_local_path),
-            },
-        )
-        return False
-    if dry_run:
-        log_manager.log_action(
-            title=title,
-            succeeded=None,
-            message=f"[dry-run] Would run: {command}",
-            notes={
-                "package-name": package_name,
-                "package-path": str(package_local_path),
-                "target-package": str(target_dir),
-            },
-        )
-        return True
-    result = run_command(
-        command,
-        working_directory=target_dir,
-        capture_output=False,
-        message=f"Installing `{package_name}` package",
-    )
-    log_manager.log_empty_lines(lines=1)
+        log_manager.log_empty_lines()
+        message = f"Command: {command}"
+        succeeded = outcome.success
     log_manager.log_action(
         title=title,
-        succeeded=result.success,
-        message=f"Command: {command}",
-        notes={
-            "package-name": package_name,
-            "package-path": str(package_local_path),
-            "target-package": str(target_dir),
-        },
+        succeeded=succeeded,
+        message=message,
+        notes=notes,
     )
-    return result.success
+    return succeeded
 
 
 def uninstall_package(
+    *,
     target_dir: Path,
     package_alias: AliasName,
     dry_run: bool,
-    *,
     sindri_packages: dict[AliasName, PackageStatus],
-) -> bool:
+) -> bool | None:
     package_status = sindri_packages[package_alias]
-    package_local_path = package_status.package_path
-    if not package_status.is_valid or not package_status.package_name:
-        log_manager.log_action(
-            title=f"Uninstall `{package_alias}`",
-            succeeded=False,
-            message="Failed. Broken package (cannot resolve package name).",
-            notes={
-                "package-alias": package_alias,
-                "package-path": str(package_local_path),
-                "reason": package_status.reason,
-            },
-        )
-        return False
     package_name = package_status.package_name
-    command = f"uv pip uninstall {package_name}"
-    title = f"Uninstall `{package_name}`"
-    if dry_run:
-        log_manager.log_action(
-            title=title,
-            succeeded=None,
-            message=f"[dry-run] Would run: {command}",
-            notes={
-                "package-name": package_name,
-                "target-package": str(target_dir),
-            },
+    notes = {
+        "package-alias": package_alias,
+        "package-name": package_name,
+        "package-path": str(package_status.package_path),
+        "target-package": str(target_dir),
+    }
+    succeeded: bool | None
+    if not (package_status.is_valid and package_name):
+        notes["reason"] = str(package_status.reason)
+        message = "Failed. Broken package (cannot resolve package name)."
+        succeeded = False
+    elif dry_run:
+        command = f"uv pip uninstall {package_name}"
+        message = f"[dry-run] Would run: {command}"
+        succeeded = None
+    else:
+        command = f"uv pip uninstall {package_name}"
+        outcome = run_command(
+            command,
+            working_directory=target_dir,
+            capture_output=False,
+            message=f"Uninstalling `{package_name}` package",
         )
-        return True
-    result = run_command(
-        command,
-        working_directory=target_dir,
-        capture_output=False,
-        message=f"Uninstalling `{package_name}` package",
-    )
-    log_manager.log_empty_lines(lines=1)
+        log_manager.log_empty_lines()
+        message = f"Command: {command}"
+        succeeded = outcome.success
     log_manager.log_action(
-        title=title,
-        succeeded=result.success,
-        message=f"Command: {command}",
-        notes={
-            "package-name": package_name,
-            "package-path": str(package_local_path),
-            "target-package": str(target_dir),
-        },
+        title=f"Uninstall `{format_package_alias(package_alias, package_name)}`",
+        succeeded=succeeded,
+        message=message,
+        notes=notes,
     )
-    return result.success
+    return succeeded
 
 
 ##
@@ -568,9 +502,7 @@ def uninstall_package(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Install/uninstall local packages into an existing target package (editable installs via uv).",
-    )
+    parser = argparse.ArgumentParser(description="Install sindri packages.")
     parser.add_argument(
         "target_dir",
         type=Path,
@@ -589,7 +521,7 @@ def parse_args():
     parser.add_argument(
         "--status",
         action="store_true",
-        help="Print commands you can run to check status",
+        help="Check sindri package status",
     )
     for package_alias in sorted(SINDRI_PACKAGES):
         package_pretty = SINDRI_PACKAGES[package_alias].name
@@ -628,11 +560,12 @@ class LinkPackages:
         self.aliases_to_uninstall: list[AliasName] = []
         self.do_self_install: bool = False
         self.do_self_uninstall: bool = False
-        self.show_stutus_hint: bool = False
+        self.show_sindri_status: bool = False
         self.is_dry_run: bool = False
         self.sindri_packages: dict[AliasName, PackageStatus] = {}
-        self.action_plan = PlannedSummary()
-        self.results = ResultsSummary()
+        self.sindri_installed_state: dict[AliasName, bool] = {}
+        self.action_plan = PlannedActions()
+        self.outcome_summary = OutcomeSummary()
 
     def _validate_package_root(
         self,
@@ -657,69 +590,63 @@ class LinkPackages:
     def _collect_actions_from_args(
         self,
     ) -> None:
-        self.aliases_to_install = [alias for alias in sorted(SINDRI_PACKAGES) if getattr(self.user_args, alias)]
+        self.aliases_to_install = [
+            package_alias for package_alias in sorted(SINDRI_PACKAGES)
+            if getattr(self.user_args, package_alias)
+        ]
         self.aliases_to_uninstall = [
-            alias for alias in sorted(SINDRI_PACKAGES) if getattr(self.user_args, f"no_{alias}")
+            package_alias for package_alias in sorted(SINDRI_PACKAGES)
+            if getattr(self.user_args, f"no_{package_alias}")
         ]
         self.do_self_install = bool(self.user_args.self_install)
         self.do_self_uninstall = bool(self.user_args.self_uninstall)
-        self.show_stutus_hint = bool(self.user_args.status)
+        self.show_sindri_status = bool(self.user_args.status)
         self.is_dry_run = bool(self.user_args.dry_run)
 
     def _verify_and_prepare_plan(
         self,
     ) -> None:
-        for alias in self.aliases_to_install:
-            status = self.sindri_packages[alias]
+        for package_alias in self.aliases_to_install:
+            status = self.sindri_packages[package_alias]
             if not status.is_valid:
-                self.results.broken_aliases.append((alias, str(status.reason)))
-        self.action_plan.install_aliases = list(self.aliases_to_install)
-        self.action_plan.uninstall_aliases = list(self.aliases_to_uninstall)
-        self.action_plan.alias_to_name = {
-            alias: get_package_name(alias, sindri_packages=self.sindri_packages
-                                    )
-            for alias in sorted(SINDRI_PACKAGES)
-        }
-        self.action_plan.install_names = get_package_names(
-            self.aliases_to_install,
-            sindri_packages=self.sindri_packages,
-        )
-        self.action_plan.uninstall_names = get_package_names(
-            self.aliases_to_uninstall,
-            sindri_packages=self.sindri_packages,
-        )
+                self.outcome_summary.broken_aliases.append((package_alias, str(status.reason)))
+        self.action_plan.install_names = [
+            (self.sindri_packages[package_alias].package_name or package_alias)
+            for package_alias in self.aliases_to_install
+        ]
+        self.action_plan.uninstall_names = [
+            (self.sindri_packages[package_alias].package_name or package_alias)
+            for package_alias in self.aliases_to_uninstall
+        ]
 
     def _render_plan_and_confirm(
         self,
+        *,
         target_dir: Path,
     ) -> None:
-        current_state = compute_sindri_install_state(sindri_packages=self.sindri_packages)
-        installed_line, missing_line = format_install_state_summary_arrow(
-            current_state,
-            alias_to_name=self.action_plan.alias_to_name,
+        installed_line, missing_line = format_installed_state(
+            self.sindri_installed_state,
+            sindri_packages=self.sindri_packages,
         )
-        planned_installs = list_or_dash(self.action_plan.install_names)
-        planned_uninstalls = list_or_dash(self.action_plan.uninstall_names)
+        planned_installs = format_list(self.action_plan.install_names)
+        planned_uninstalls = format_list(self.action_plan.uninstall_names)
         notes: dict[str, Any] = {
-            "target package": str(target_dir),
+            "target-project": str(target_dir),
             "self-install": self.do_self_install,
             "self-uninstall": self.do_self_uninstall,
             "requested installs": planned_installs,
             "requested uninstalls": planned_uninstalls,
-            "show sindri status": self.show_stutus_hint,
+            "show sindri status": self.show_sindri_status,
             "dry-run": self.is_dry_run,
             "already installed packages": installed_line,
             "available packages": missing_line,
         }
-        if self.results.broken_aliases:
+        if self.outcome_summary.broken_aliases:
             broken_aliases = ", ".join(
-                f"{arrow_label(alias, get_package_name(alias, sindri_packages=self.sindri_packages))}[{reason}]"
-                for alias, reason in self.results.broken_aliases
+                f"{format_package_alias(package_alias, self.sindri_packages[package_alias].package_name)}[{reason}]"
+                for package_alias, reason in self.outcome_summary.broken_aliases
             )
-            self.action_plan.broken_aliases = broken_aliases
             notes["requested broken packages"] = broken_aliases
-        else:
-            self.action_plan.broken_aliases = "none"
         log_manager.log_context(
             title="Planned Actions",
             notes=notes,
@@ -729,29 +656,20 @@ class LinkPackages:
         if user_response not in ("y", "yes"):
             log_manager.log_outcome("Aborted by user.", outcome=log_manager.ActionOutcome.SKIPPED)
             sys.exit(1)
-        log_manager.log_empty_lines(lines=1)
-        packages_to_reinstall = set(self.aliases_to_uninstall) & set(self.aliases_to_install)
-        if packages_to_reinstall:
-            list_of_packages = ", ".join(
-                sorted(
-                    get_package_name(alias, sindri_packages=self.sindri_packages
-                                     ) for alias in packages_to_reinstall
-                ),
-            )
-            log_manager.log_hint(
-                f"Reinstall will occur for: {list_of_packages} "
-                f"(uninstall {log_manager.Symbols.RIGHT_ARROW.value} install)",
-                show_time=True,
-            )
+        log_manager.log_empty_lines()
 
     def parse_and_verify_args(
         self,
     ) -> None:
         target_dir = self._validate_package_root()
-        self.sindri_packages = verify_sindri_packages()
+        self.sindri_packages = {
+            package_alias: verify_sindri_package(package_alias)
+            for package_alias in SINDRI_PACKAGES
+        }
+        self.sindri_installed_state = get_installed_state(sindri_packages=self.sindri_packages)
         self._collect_actions_from_args()
         self._verify_and_prepare_plan()
-        self._render_plan_and_confirm(target_dir)
+        self._render_plan_and_confirm(target_dir=target_dir)
         self.target_dir = target_dir
 
     def apply_requested_actions(
@@ -760,56 +678,59 @@ class LinkPackages:
         assert self.target_dir is not None
         for package_alias in self.aliases_to_uninstall:
             successful = uninstall_package(
-                self.target_dir,
-                package_alias,
-                self.is_dry_run,
+                target_dir=self.target_dir,
+                package_alias=package_alias,
+                dry_run=self.is_dry_run,
                 sindri_packages=self.sindri_packages,
             )
-            self.results.uninstalled_packages.append((package_alias, successful))
+            self.outcome_summary.uninstalled_packages.append((package_alias, successful))
         if self.do_self_uninstall:
-            self.results.self_uninstall = self_uninstall_package(
-                self.target_dir,
-                self.is_dry_run,
+            self.outcome_summary.uninstall_self = uninstall_self(
+                target_dir=self.target_dir,
+                dry_run=self.is_dry_run,
             )
         if self.do_self_install:
-            self.results.self_install = self_install_package(
-                self.target_dir,
-                self.is_dry_run,
+            self.outcome_summary.install_self = install_self(
+                target_dir=self.target_dir,
+                dry_run=self.is_dry_run,
             )
         for package_alias in self.aliases_to_install:
             successful = install_package(
-                self.target_dir,
-                package_alias,
-                self.is_dry_run,
+                target_dir=self.target_dir,
+                package_alias=package_alias,
+                dry_run=self.is_dry_run,
                 sindri_packages=self.sindri_packages,
             )
-            self.results.installed_packages.append((package_alias, successful))
-        if self.show_stutus_hint:
-            render_status_hint_block(self.target_dir, sindri_packages=self.sindri_packages)
+            self.outcome_summary.installed_packages.append((package_alias, successful))
+        if self.show_sindri_status:
+            print_sindri_status(
+                sindri_packages=self.sindri_packages,
+                sindri_installed_state=self.sindri_installed_state,
+            )
 
     def summarise_and_exit(
         self,
     ) -> None:
-        successful_installs, failed_installs = split_success_failure(
-            self.results.installed_packages,
-            alias_to_name=self.action_plan.alias_to_name,
+        successful_installs, failed_installs = split_success_and_failure(
+            results=self.outcome_summary.installed_packages,
+            sindri_packages=self.sindri_packages,
         )
-        successful_uninstalls, failed_uninstalls = split_success_failure(
-            self.results.uninstalled_packages,
-            alias_to_name=self.action_plan.alias_to_name,
+        successful_uninstalls, failed_uninstalls = split_success_and_failure(
+            results=self.outcome_summary.uninstalled_packages,
+            sindri_packages=self.sindri_packages,
         )
-        install_package_status = self.results.self_install
-        uninstall_package_status = self.results.self_uninstall
+        install_package_status = self.outcome_summary.install_self
+        uninstall_package_status = self.outcome_summary.uninstall_self
         log_manager.log_summary(
             title="Final Summary",
             message="Finished.",
             notes={
                 "self-install": format_optional_outcome(install_package_status),
                 "self-uninstall": format_optional_outcome(uninstall_package_status),
-                "Successfully installed": list_or_dash(successful_installs),
-                "Successfully uninstalled": list_or_dash(successful_uninstalls),
-                "Failed to install": list_or_dash(failed_installs),
-                "Failed to uninstall": list_or_dash(failed_uninstalls),
+                "Successfully installed": format_list(successful_installs),
+                "Successfully uninstalled": format_list(successful_uninstalls),
+                "Failed to install": format_list(failed_installs),
+                "Failed to uninstall": format_list(failed_uninstalls),
             },
         )
         status_summary: list[bool] = []
@@ -817,8 +738,14 @@ class LinkPackages:
             status_summary.append(bool(install_package_status))
         if uninstall_package_status is not None:
             status_summary.append(bool(uninstall_package_status))
-        status_summary.extend(bool(successful) for (_, successful) in self.results.uninstalled_packages)
-        status_summary.extend(bool(successful) for (_, successful) in self.results.installed_packages)
+        status_summary.extend(
+            successful for (_, successful) in self.outcome_summary.uninstalled_packages
+            if successful is not None
+        )
+        status_summary.extend(
+            successful for (_, successful) in self.outcome_summary.installed_packages
+            if successful is not None
+        )
         sys.exit(0 if all(status_summary) else 1)
 
     def run(
