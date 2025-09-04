@@ -51,7 +51,9 @@ def ensure_uv_is_available() -> None:
     log_manager.log_outcome("Found `uv`", outcome=log_manager.ActionOutcome.SUCCESS)
 
 
-def _should_ignore_dirname(dir_name: str) -> bool:
+def _should_ignore_dirname(
+    dir_name: str,
+) -> bool:
     return dir_name in DIRS_TO_IGNORE
 
 
@@ -65,7 +67,9 @@ def _should_ignore_file(path: Path) -> bool:
     return False
 
 
-def collect_py_files(targets: list[Path]) -> list[Path]:
+def collect_py_files(
+    targets: list[Path],
+) -> list[Path]:
     file_paths: list[Path] = []
     for path in targets:
         if not path.exists():
@@ -75,8 +79,7 @@ def collect_py_files(targets: list[Path]) -> list[Path]:
                 file_paths.append(path)
             continue
         for dir_path, dir_names, file_names in os.walk(path, topdown=True):
-            # prune directories in-place so os.walk does not descend into them
-            dir_names[:] = [d for d in dir_names if not _should_ignore_dirname(d)]
+            dir_names[:] = [dir_name for dir_name in dir_names if not _should_ignore_dirname(dir_name)]
             for filename in file_names:
                 full_path = Path(dir_path) / filename
                 if _should_ignore_file(full_path):
@@ -86,22 +89,27 @@ def collect_py_files(targets: list[Path]) -> list[Path]:
     return file_paths
 
 
-def apply_trailing_commas(file_paths: list[Path]) -> None:
+def apply_trailing_commas(
+    file_paths: list[Path],
+) -> None:
     if not file_paths:
         log_manager.log_note("No Python files to update for trailing commas")
         return
-
     log_manager.log_task(f"Adding trailing commas where safe ({len(file_paths)} files)")
     for file_path in file_paths:
         shell_manager.execute_shell_command(
             f'uvx --from add-trailing-comma add-trailing-comma --exit-zero-even-if-changed "{file_path}"',
             timeout_seconds=120,
-            show_output=True,
         )
-    log_manager.log_outcome("Completed trailing-commas pass", outcome=log_manager.ActionOutcome.SUCCESS)
+    log_manager.log_outcome(
+        "Completed trailing-commas pass",
+        outcome=log_manager.ActionOutcome.SUCCESS,
+    )
 
 
-def apply_yapf_style(file_paths: list[Path]) -> None:
+def apply_yapf_style(
+    file_paths: list[Path],
+) -> None:
     if not file_paths:
         log_manager.log_note("No files for YAPF")
         return
@@ -111,13 +119,11 @@ def apply_yapf_style(file_paths: list[Path]) -> None:
             notes={"expected_path": str(STYLE_FILE_PATH)},
         )
         sys.exit(1)
-
     log_manager.log_task(f"Running YAPF-styling on {len(file_paths)} file(s)")
     for file_path in file_paths:
         shell_manager.execute_shell_command(
             f'uvx --from yapf yapf -i --verbose --style "{STYLE_FILE_PATH}" "{file_path}"',
             timeout_seconds=300,
-            show_output=True,
         )
     log_manager.log_outcome("Completed YAPF formatting", outcome=log_manager.ActionOutcome.SUCCESS)
 
@@ -127,31 +133,30 @@ def apply_yapf_style(file_paths: list[Path]) -> None:
 ##
 
 
-def format_project(targets: list[str] | None = None) -> int:
+def format_project(
+    targets: list[str] | None = None,
+) -> int:
     log_manager.log_task("Formatting Python files...", show_time=True)
-
     ensure_styling_rules_exist()
     ensure_uv_is_available()
-
     log_manager.log_note(f"Using style rules from: {STYLE_FILE_PATH}")
-
     if not targets:
         resolved_targets = [Path.cwd()]
     else:
-        resolved_targets = [Path(t).resolve() for t in targets]
-
+        resolved_targets = [Path(target).resolve() for target in targets]
     log_manager.log_note("Scanning target roots: " + ", ".join(map(str, resolved_targets)))
     file_paths = collect_py_files(resolved_targets)
-    log_manager.log_note(f"Found {len(file_paths)} Python files across {len(resolved_targets)} target(s)")
-
+    log_manager.log_note(
+        f"Found {len(file_paths)} Python files across {len(resolved_targets)} target(s)",
+    )
     if not file_paths:
-        log_manager.log_note("No Python files were found under: " + ", ".join(map(str, resolved_targets)))
+        log_manager.log_note(
+            "No Python files were found under: " + ", ".join(map(str, resolved_targets)),
+        )
         log_manager.log_outcome("Nothing to do", outcome=log_manager.ActionOutcome.SKIPPED)
         return 0
-
     apply_trailing_commas(file_paths)
     apply_yapf_style(file_paths)
-
     log_manager.log_outcome("Formatting finished", outcome=log_manager.ActionOutcome.SUCCESS)
     return 0
 
@@ -161,10 +166,10 @@ def format_project(targets: list[str] | None = None) -> int:
 ##
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Apply trailing-commas rule and YAPF styling to selected targets.",
-    )
+def main(
+    argv: list[str] | None = None,
+) -> int:
+    parser = argparse.ArgumentParser(description="Format python files.")
     parser.add_argument(
         "targets",
         nargs="*",

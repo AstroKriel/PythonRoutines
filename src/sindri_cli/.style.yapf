@@ -6,7 +6,7 @@ use_tabs = false
 indent_width = 4
 
 ## === Line wrapping ===
-column_limit = 120
+column_limit = 110
 
 ## === Brackets / function args ===
 ## always break items into their own lines
