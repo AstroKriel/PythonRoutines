@@ -1,7 +1,7 @@
 ## { SCRIPT
 
 ##
-## === DEPENDENCIES ===
+## === DEPENDENCIES
 ##
 
 import sys
@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from jormi.ww_io import shell_manager, log_manager
 
 ##
-## === GLOBAL PARAMS ===
+## === GLOBAL PARAMS
 ##
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -30,14 +30,14 @@ SINDRI_PACKAGES: dict[str, Path] = {
 }
 
 ##
-## === TYPE ALIASES ===
+## === TYPE ALIASES
 ##
 
 AliasName = str
 PackageName = str
 
 ##
-## === DATA MODELS ===
+## === DATA MODELS
 ##
 
 
@@ -66,7 +66,7 @@ class CommandOutcome:
 
 
 ##
-## === FORMATTING HELPERS ===
+## === FORMATTING HELPERS
 ##
 
 
@@ -123,7 +123,7 @@ def format_path(
 
 
 ##
-## === PYPROJECT / SHELL HELPERS ===
+## === PYPROJECT / SHELL HELPERS
 ##
 
 
@@ -161,7 +161,7 @@ def run_command(
 
 
 ##
-## === PACKAGE VERIFICATION ===
+## === PACKAGE VERIFICATION
 ##
 
 
@@ -218,7 +218,7 @@ def get_package_status(
 
 
 ##
-## === ENV INSPECTION (uv) ===
+## === ENV INSPECTION (uv)
 ##
 
 
@@ -246,7 +246,7 @@ def update_installed_status(
 
 
 ##
-## === ENVIRONMENT CHECKS ===
+## === ENVIRONMENT CHECKS
 ##
 
 
@@ -262,7 +262,7 @@ def ensure_package_root(
 
 
 ##
-## === RENDERING ===
+## === RENDERING
 ##
 
 
@@ -299,7 +299,7 @@ def print_sindri_status(
 
 
 ##
-## === CORE ACTIONS ===
+## === CORE ACTIONS
 ##
 
 
@@ -440,7 +440,7 @@ def uninstall_package(
 
 
 ##
-## === CLI ===
+## === CLI
 ##
 
 
@@ -482,7 +482,7 @@ def parse_args():
 
 
 ##
-## === WORKFLOW ===
+## === WORKFLOW
 ##
 
 
@@ -670,7 +670,7 @@ class LinkPackages:
 
 
 ##
-## === MAIN ===
+## === MAIN
 ##
 
 

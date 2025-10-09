@@ -1,7 +1,7 @@
 ## { SCRIPT
 
 ##
-## === DEPENDENCIES ===
+## === DEPENDENCIES
 ##
 
 import os
@@ -12,7 +12,7 @@ from pathlib import Path
 from jormi.ww_io import shell_manager, log_manager
 
 ##
-## === GLOBAL PARAMS ===
+## === GLOBAL PARAMS
 ##
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -30,7 +30,7 @@ DIRS_TO_IGNORE = (
 )
 
 ##
-## === HELPER FUNCTIONS ===
+## === HELPER FUNCTIONS
 ##
 
 
@@ -129,7 +129,7 @@ def apply_yapf_style(
 
 
 ##
-## === MAIN ROUTINE ===
+## === MAIN ROUTINE
 ##
 
 
@@ -162,7 +162,7 @@ def format_project(
 
 
 ##
-## === USER INTERFACE ===
+## === USER INTERFACE
 ##
 
 
@@ -185,7 +185,7 @@ def main(
 
 
 ##
-## === ENTRY POINT ===
+## === ENTRY POINT
 ##
 
 if __name__ == "__main__":
