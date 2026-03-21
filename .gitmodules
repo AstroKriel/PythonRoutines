@@ -1,19 +1,24 @@
 [submodule "submodules/jormi"]
 	path = submodules/jormi
 	url = git@github.com:AstroKriel/PythonHelpers.git
+	branch = main
 [submodule "submodules/bifrost"]
 	path = submodules/bifrost
 	url = git@github.com:AstroKriel/HDF5DataManager.git
+	branch = main
 [submodule "submodules/vegtamr"]
 	path = submodules/vegtamr
 	url = git@github.com:AstroKriel/LineIntegralConvolution.git
-	branch = draft-docs
+	branch = main
 [submodule "submodules/ww_flash_sims"]
 	path = submodules/ww_flash_sims
 	url = git@github.com:AstroKriel/WWFlashSims.git
+	branch = main
 [submodule "submodules/ww_arepo_sims"]
 	path = submodules/ww_arepo_sims
 	url = git@github.com:AstroKriel/WWArepoSims.git
+	branch = main
 [submodule "submodules/ww_quokka_sims"]
 	path = submodules/ww_quokka_sims
 	url = git@github.com:AstroKriel/WWQuokkaSims.git
+	branch = main
