@@ -4,14 +4,18 @@
 ## === DEPENDENCIES
 ##
 
-import sys
-import json
-import tomllib
+## stdlib
 import argparse
-from typing import Any, Iterable
-from pathlib import Path
+import json
+import sys
+import tomllib
+
 from dataclasses import dataclass, field
-from jormi.ww_io import shell_manager, log_manager
+from pathlib import Path
+from typing import Any, Iterable
+
+## third-party
+from jormi.ww_io import manage_log, manage_shell
 
 ##
 ## === GLOBAL PARAMS
@@ -73,7 +77,7 @@ class CommandOutcome:
 def format_package_label(
     package_status: PackageStatus,
 ) -> str:
-    arrow = log_manager.Symbols.RIGHT_ARROW.value
+    arrow = manage_log.Symbols.RIGHT_ARROW.value
     if package_status.package_name and (package_status.package_name != package_status.package_alias):
         alias_mapping = f"{package_status.package_alias} {arrow} {package_status.package_name}"
     else:
@@ -101,7 +105,7 @@ def format_optional_outcome(
     command_outcome: bool | None,
 ) -> str:
     if command_outcome is None:
-        return log_manager.Symbols.EM_DASH.value
+        return manage_log.Symbols.EM_DASH.value
     return "succeeded" if command_outcome else "failed"
 
 
@@ -112,13 +116,13 @@ def format_list(
     if cleaned_items:
         return ", ".join(cleaned_items)
     else:
-        return log_manager.Symbols.EM_DASH.value
+        return manage_log.Symbols.EM_DASH.value
 
 
 def format_path(
     path: Path,
 ) -> str:
-    hooked_arrow = log_manager.Symbols.HOOKED_ARROW.value
+    hooked_arrow = manage_log.Symbols.HOOKED_ARROW.value
     return f"\n\t{hooked_arrow} {path}"
 
 
@@ -137,22 +141,23 @@ def run_command(
     message: str | None = None,
 ) -> CommandOutcome:
     try:
-        if message: log_manager.log_task(message, show_time=True)
-        result = shell_manager.execute_shell_command(
+        if message: manage_log.log_task(message, show_time=True)
+        result = manage_shell.execute_shell_command(
             command,
             working_directory=working_directory,
             timeout_seconds=timeout_seconds,
             use_shell=use_shell,
             capture_output=capture_output,
+            raise_on_error=False,
         )
         return CommandOutcome(
             succeeded=result.succeeded,
             output=result.stdout,
         )
     except Exception as exception:
-        log_manager.log_outcome(
+        manage_log.log_outcome(
             f"Command failed: {command}\n{exception}",
-            outcome=log_manager.ActionOutcome.FAILURE,
+            outcome=manage_log.ActionOutcome.FAILURE,
         )
         return CommandOutcome(
             succeeded=False,
@@ -274,7 +279,7 @@ def print_sindri_status(
     for package_alias in sorted(sindri_packages):
         package_status = sindri_packages[package_alias]
         package_label = format_package_label(package_status)
-        package_path = f"{log_manager.Symbols.HOOKED_ARROW.value} path: {package_status.package_path}"
+        package_path = f"{manage_log.Symbols.HOOKED_ARROW.value} path: {package_status.package_path}"
         if not package_status.is_valid:
             package_state = f"broken[{package_status.reason}]"
         else:
@@ -291,7 +296,7 @@ def print_sindri_status(
     num_broken = sum(1 for package_state in sindri_packages.values() if not package_state.is_valid)
     num_missing = max(len(sindri_packages) - num_installed - num_broken, 0)
     notes["summary"] = f"installed={num_installed}, not installed={num_missing}, broken={num_broken}"
-    log_manager.log_context(
+    manage_log.log_context(
         title="Sindri Packages",
         message="Sindri packages and their install state in this project.",
         notes=notes,
@@ -319,12 +324,12 @@ def install_self(
         working_directory=target_dir,
         capture_output=False,
     )
-    log_manager.log_empty_lines()
+    manage_log.log_empty_lines()
     message = f"Command: {command}"
     succeeded = command_outcome.succeeded
-    log_manager.log_action(
+    manage_log.log_action(
         title=f"Install `{package_name}`",
-        succeeded=succeeded,
+        outcome=manage_log.ActionOutcome.SUCCESS if succeeded else manage_log.ActionOutcome.FAILURE,
         message=message,
         notes=notes,
     )
@@ -343,12 +348,12 @@ def uninstall_self(
         working_directory=target_dir,
         capture_output=False,
     )
-    log_manager.log_empty_lines()
+    manage_log.log_empty_lines()
     message = f"Command: {command}"
     succeeded = command_outcome.succeeded
-    log_manager.log_action(
+    manage_log.log_action(
         title=f"Uninstall `{package_name}`",
-        succeeded=succeeded,
+        outcome=manage_log.ActionOutcome.SUCCESS if succeeded else manage_log.ActionOutcome.FAILURE,
         message=message,
         notes={
             "package-name": package_name,
@@ -389,12 +394,12 @@ def install_package(
             capture_output=False,
             message=f"Installing `{package_status.package_name}` package",
         )
-        log_manager.log_empty_lines()
+        manage_log.log_empty_lines()
         message = f"Command: {command}"
         succeeded = command_outcome.succeeded
-    log_manager.log_action(
+    manage_log.log_action(
         title=f"Install `{format_package_label(package_status)}`",
-        succeeded=succeeded,
+        outcome=manage_log.ActionOutcome.SUCCESS if succeeded else manage_log.ActionOutcome.FAILURE,
         message=message,
         notes=notes,
     )
@@ -427,12 +432,12 @@ def uninstall_package(
             capture_output=False,
             message=f"Uninstalling `{package_status.package_name}` package",
         )
-        log_manager.log_empty_lines()
+        manage_log.log_empty_lines()
         message = f"Command: {command}"
         succeeded = command_outcome.succeeded
-    log_manager.log_action(
+    manage_log.log_action(
         title=f"Uninstall `{format_package_label(package_status)}`",
-        succeeded=succeeded,
+        outcome=manage_log.ActionOutcome.SUCCESS if succeeded else manage_log.ActionOutcome.FAILURE,
         message=message,
         notes=notes,
     )
@@ -510,15 +515,15 @@ class LinkPackages:
             raise FileNotFoundError(f"Target package directory does not exist: {format_path(target_dir)}")
         pyproject_path = target_dir / "pyproject.toml"
         if not pyproject_path.exists():
-            log_manager.log_outcome(
+            manage_log.log_outcome(
                 f"No pyproject.toml found under: {format_path(target_dir)}",
-                outcome=log_manager.ActionOutcome.FAILURE,
+                outcome=manage_log.ActionOutcome.FAILURE,
             )
             sys.exit(1)
         try:
             ensure_package_root(target_dir)
         except Exception as exception:
-            log_manager.log_outcome(str(exception), outcome=log_manager.ActionOutcome.FAILURE)
+            manage_log.log_outcome(str(exception), outcome=manage_log.ActionOutcome.FAILURE)
             sys.exit(1)
         self.target_dir = target_dir
 
@@ -576,16 +581,16 @@ class LinkPackages:
             "packages not installed": format_list(labels_packages_not_installed),
             "show sindri status": self.show_sindri_status,
         }
-        log_manager.log_context(
+        manage_log.log_context(
             title="Planned Actions",
             notes=notes,
             message="Review the items above.",
         )
         user_response = input("Proceed? [y/N]: ").strip().lower()
         if user_response not in ("y", "yes"):
-            log_manager.log_outcome("Aborted by user.", outcome=log_manager.ActionOutcome.SKIPPED)
+            manage_log.log_outcome("Aborted by user.", outcome=manage_log.ActionOutcome.SKIPPED)
             sys.exit(1)
-        log_manager.log_empty_lines()
+        manage_log.log_empty_lines()
 
     def parse_and_verify_args(
         self,
@@ -640,7 +645,7 @@ class LinkPackages:
             results=self.outcome_summary.packages_uninstalled,
             sindri_packages=self.sindri_packages,
         )
-        log_manager.log_summary(
+        manage_log.log_summary(
             title="Final Summary",
             message="Finished.",
             notes={
