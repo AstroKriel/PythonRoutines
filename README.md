@@ -1,10 +1,10 @@
 # Sindri
 
-Sindri is Asgard's Python dev layer, installed as a `uv tool` (its own isolated environment, with commands available system-wide, independently of any project's virtual environment). It provides two command line tools:
+Sindri is Asgard's Python dev layer, installed as a `uv tool` (its own isolated environment, with commands available system-wide, independently of any project's virtual environment). It provides two command line tools; pass `-h` to either for usage details.
 
-`sindri_packages.py` manages which Asgard submodule packages are installed into a given project's `.venv`. It is intended for active development alongside packages like `jormi` or `ww_quokka_sims` that are not yet pinned as formal dependencies. It takes a `target_dir` (the project root) and flags for each package (`--jormi`, `--quokka`, etc.), with `--no-<package>` variants to uninstall. `--self-install` and `--self-uninstall` handle the target project's own package, and `--status` shows the current install state of all packages. Note: local editable installs wired up this way are a development convenience. Once a package dependency is settled, it should be declared properly in the project's dependency manager (e.g. `pyproject.toml` via uv) and the local install should be removed.
+`sindri_packages.py` manages which Asgard submodule packages are installed into a given project's `.venv`. It's intended for active development alongside packages that are not yet pinned as formal dependencies. It takes a `target_dir` (the project root), flags for each package (`--jormi`, `--quokka`, etc.) with `--no-<package>` variants to uninstall, `--self-install`/`--self-uninstall` for the target project's own package, and `--status` to show the current install state of all packages. Once a dependency is settled, it should be declared properly in `pyproject.toml` and the local install removed.
 
-`format_python_files.py` runs trailing-comma cleanup followed by YAPF formatting across a set of Python files, applying consistent style rules defined in `.style.yapf`. It optionally takes `targets` (files or directories); if none are given, it formats from the current working directory.
+`format_python_files.py` standardises the formatting of Python file content (indentation, spacing, line length, etc.) based on the rules defined in `.style.yapf`. It optionally takes `targets` (files or directories); if none are given, it recursively formats from the current working directory.
 
 ## Setup
 
