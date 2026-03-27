@@ -2,9 +2,9 @@
 
 Sindri is [Asgard](https://github.com/AstroKriel/Asgard)'s Python dev layer. It's the home of my Python packages (see [Project layout](#project-layout)), and provides two command line tools to help with development. You can install and manage these tools using the convenient scripts in [Setup](#setup), which make these tools available system-wide, independent of any project's virtual environment; pass `-h` to either tool for usage details.
 
-`sindri_packages.py` manages which Asgard submodule packages are installed into a given project's `.venv`. It's intended for active development alongside packages that are not yet pinned as formal dependencies. It takes a `target_dir` (the project root), flags for each package (`--jormi`, `--quokka`, etc.) with `--no-<package>` variants to uninstall, `--self-install`/`--self-uninstall` for the target project's own package, and `--status` to show the current install state of all packages. Once a dependency is settled, it should be declared properly in `pyproject.toml` and the local install removed.
+`sindri_packages.py` manages which Sindri submodule packages are installed into a given Python project's `.venv`. This is intended when the repository is under active development alongside the packages that are not yet pinned as formal dependencies. This script takes a `target_dir` (the project root), and flags for each package (`--jormi`, `--quokka`, etc.) with `--no-<package>` variants to uninstall, and `--self-install`/`--self-uninstall` for the target project's own package; `--status` shows the current installed state of all packages in the current repo. Once a dependency is settled, it should be declared properly in `pyproject.toml` and the local install should be removed.
 
-`format_python_files.py` standardises the formatting of Python file content (indentation, spacing, line length, etc.) based on the rules defined in `.style.yapf`. It optionally takes `targets` (files or directories); if none are given, it recursively formats from the current working directory.
+`format_python_files.py` standardises the formatting of Python file content (indentation, spacing, line length, etc.) based on the rules defined in `.style.yapf`. It also optionally takes `targets` (files or directories); if none are given, then it recursively formats all Python files under the current working directory.
 
 ## Setup
 
