@@ -9,10 +9,12 @@ import argparse
 import os
 import shutil
 import sys
+import typing
 
 from pathlib import Path
 
 ## third-party
+import libcst
 from jormi.ww_io import manage_log, manage_shell
 
 ##
@@ -22,8 +24,8 @@ from jormi.ww_io import manage_log, manage_shell
 SCRIPT_DIR = Path(__file__).resolve().parent
 STYLE_FILE_NAME = ".style.yapf"
 STYLE_FILE_PATH = SCRIPT_DIR / STYLE_FILE_NAME
-FILES_TO_IGNORE = set()
-DIRS_TO_IGNORE = (
+FILES_TO_IGNORE: set[str] = set()
+DIRS_TO_IGNORE: tuple[str, ...] = (
     ".DS_Store",
     "__pycache__",
     ".venv",
@@ -48,7 +50,7 @@ def ensure_styling_rules_exist() -> None:
 
 
 def ensure_uv_is_available() -> None:
-    # checking for uv is fine, since uvx is a subcommand of it
+    ## checking for uv is fine, since uvx is a subcommand of it
     if shutil.which("uv") is None:
         manage_log.log_error("`uv` not found in PATH. Install uv first.")
         sys.exit(1)
@@ -61,7 +63,9 @@ def _should_ignore_dirname(
     return dir_name in DIRS_TO_IGNORE
 
 
-def _should_ignore_file(path: Path) -> bool:
+def _should_ignore_file(
+    path: Path,
+) -> bool:
     if path.name in FILES_TO_IGNORE:
         return True
     if path.suffix.lower() != ".py":
@@ -93,6 +97,75 @@ def collect_py_files(
     return file_paths
 
 
+class _AddTrailingCommas(libcst.CSTTransformer):
+
+    def leave_FunctionDef(
+        self,
+        original_node: libcst.FunctionDef,
+        updated_node: libcst.FunctionDef,
+    ) -> libcst.FunctionDef:
+        return updated_node.with_changes(
+            params=_ensure_trailing_comma(updated_node.params),
+        )
+
+
+def _ensure_trailing_comma(
+    params: libcst.Parameters,
+) -> libcst.Parameters:
+    _comma: libcst.Comma = libcst.Comma(whitespace_after=libcst.SimpleWhitespace(""))
+    if params.star_kwarg is not None:
+        if isinstance(params.star_kwarg.comma, libcst.MaybeSentinel):
+            return params.with_changes(
+                star_kwarg=params.star_kwarg.with_changes(comma=_comma),
+            )
+    elif params.kwonly_params:
+        last = params.kwonly_params[-1]
+        if isinstance(last.comma, libcst.MaybeSentinel):
+            return params.with_changes(
+                kwonly_params=(
+                    *params.kwonly_params[:-1],
+                    last.with_changes(comma=_comma),
+                ),
+            )
+    elif params.params:
+        last = params.params[-1]
+        if isinstance(last.comma, libcst.MaybeSentinel):
+            return params.with_changes(
+                params=(*params.params[:-1], last.with_changes(comma=_comma)),
+            )
+    elif params.posonly_params:
+        last = params.posonly_params[-1]
+        if isinstance(last.comma, libcst.MaybeSentinel):
+            return params.with_changes(
+                posonly_params=(
+                    *params.posonly_params[:-1],
+                    last.with_changes(comma=_comma),
+                ),
+            )
+    return params
+
+
+def apply_expand_fn_signatures(
+    file_paths: list[Path],
+) -> None:
+    if not file_paths:
+        manage_log.log_note("No Python files to expand function signatures")
+        return
+    manage_log.log_task(
+        f"Expanding function signatures to multi-line ({len(file_paths)} files)",
+    )
+    transformer = _AddTrailingCommas()
+    for file_path in file_paths:
+        source = file_path.read_text(encoding="utf-8")
+        new_source = libcst.parse_module(source).visit(transformer).code
+        if new_source != source:
+            _ = file_path.write_text(new_source, encoding="utf-8")
+    manage_log.log_outcome(
+        "Completed function signature expansion",
+        outcome=manage_log.ActionOutcome.SUCCESS,
+    )
+
+
 def apply_trailing_commas(
     file_paths: list[Path],
 ) -> None:
@@ -101,7 +174,7 @@ def apply_trailing_commas(
         return
     manage_log.log_task(f"Adding trailing commas where safe ({len(file_paths)} files)")
     for file_path in file_paths:
-        manage_shell.execute_shell_command(
+        _ = manage_shell.execute_shell_command(
             f'uvx --from add-trailing-comma add-trailing-comma --exit-zero-even-if-changed "{file_path}"',
             timeout_seconds=120,
         )
@@ -125,11 +198,14 @@ def apply_yapf_style(
         sys.exit(1)
     manage_log.log_task(f"Running YAPF-styling on {len(file_paths)} file(s)")
     for file_path in file_paths:
-        manage_shell.execute_shell_command(
+        _ = manage_shell.execute_shell_command(
             f'uvx --from yapf yapf -i --verbose --style "{STYLE_FILE_PATH}" "{file_path}"',
             timeout_seconds=300,
         )
-    manage_log.log_outcome("Completed YAPF formatting", outcome=manage_log.ActionOutcome.SUCCESS)
+    manage_log.log_outcome(
+        "Completed YAPF formatting",
+        outcome=manage_log.ActionOutcome.SUCCESS,
+    )
 
 
 ##
@@ -148,7 +224,9 @@ def format_project(
         resolved_targets = [Path.cwd()]
     else:
         resolved_targets = [Path(target).resolve() for target in targets]
-    manage_log.log_note("Scanning target roots: " + ", ".join(map(str, resolved_targets)))
+    manage_log.log_note(
+        "Scanning target roots: " + ", ".join(map(str, resolved_targets)),
+    )
     file_paths = collect_py_files(resolved_targets)
     manage_log.log_note(
         f"Found {len(file_paths)} Python files across {len(resolved_targets)} target(s)",
@@ -157,11 +235,18 @@ def format_project(
         manage_log.log_note(
             "No Python files were found under: " + ", ".join(map(str, resolved_targets)),
         )
-        manage_log.log_outcome("Nothing to do", outcome=manage_log.ActionOutcome.SKIPPED)
+        manage_log.log_outcome(
+            "Nothing to do",
+            outcome=manage_log.ActionOutcome.SKIPPED,
+        )
         return 0
     apply_trailing_commas(file_paths)
+    apply_expand_fn_signatures(file_paths)
     apply_yapf_style(file_paths)
-    manage_log.log_outcome("Formatting finished", outcome=manage_log.ActionOutcome.SUCCESS)
+    manage_log.log_outcome(
+        "Formatting finished",
+        outcome=manage_log.ActionOutcome.SUCCESS,
+    )
     return 0
 
 
@@ -174,7 +259,7 @@ def main(
     argv: list[str] | None = None,
 ) -> int:
     parser = argparse.ArgumentParser(description="Format python files.")
-    parser.add_argument(
+    _ = parser.add_argument(
         "targets",
         nargs="*",
         help=(
@@ -185,7 +270,7 @@ def main(
         ),
     )
     args = parser.parse_args(argv if (argv is not None) else sys.argv[1:])
-    return format_project(args.targets)
+    return format_project(typing.cast(list[str], args.targets))
 
 
 ##

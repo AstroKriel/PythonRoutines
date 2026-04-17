@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "jormi",
+  "libcst",
 ]
 
 [tool.uv.sources]
@@ -31,5 +32,12 @@ allow-direct-references = true
 [tool.pyright]
 include = ["tools/sindri_cli"]
 extraPaths = ["submodules/jormi/src"]
+venvPath = "."
+venv = ".venv"
 reportMissingImports = true
 reportMissingTypeStubs = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnusedParameter = false
+reportImplicitOverride = false
