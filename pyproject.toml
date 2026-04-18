@@ -21,6 +21,8 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
+## sindri_cli uses an underscore because it is an importable Python package;
+## the distribution name (sindri-cli) uses hyphens per Python packaging convention
 packages = ["tools/sindri_cli"]
 
 [tool.hatch.build.targets.wheel.force-include]
