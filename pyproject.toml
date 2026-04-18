@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-jormi = { path = "submodules/jormi" }
+jormi = { path = "submodules/jormi", editable = true }
 
 [project.scripts]
 format-python-files = "sindri_cli.format_python_files:main"
@@ -31,7 +31,6 @@ allow-direct-references = true
 
 [tool.pyright]
 include = ["tools/sindri_cli"]
-extraPaths = ["submodules/jormi/src"]
 venvPath = "."
 venv = ".venv"
 reportMissingImports = true

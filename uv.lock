@@ -236,7 +236,7 @@ wheels = [
 [[package]]
 name = "jormi"
 version = "0.1.0"
-source = { directory = "submodules/jormi" }
+source = { editable = "submodules/jormi" }
 dependencies = [
     { name = "cmasher" },
     { name = "h5py" },
@@ -946,7 +946,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "jormi", directory = "submodules/jormi" },
+    { name = "jormi", editable = "submodules/jormi" },
     { name = "libcst" },
 ]
 
