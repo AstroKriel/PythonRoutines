@@ -6,13 +6,14 @@
 
 ## stdlib
 import argparse
+import collections.abc
+import dataclasses
 import json
 import sys
 import tomllib
+import typing
 
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
 
 ## third-party
 from jormi.ww_io import manage_log, manage_shell
@@ -21,8 +22,8 @@ from jormi.ww_io import manage_log, manage_shell
 ## === GLOBAL PARAMS
 ##
 
-_SCRIPT_DIR = Path(__file__).resolve().parent
-SINDRI_DIR = _SCRIPT_DIR.parent.parent
+SCRIPT_DIR = Path(__file__).resolve().parent
+SINDRI_DIR = SCRIPT_DIR.parent.parent
 
 SINDRI_PACKAGES: dict[str, Path] = {
     "jormi": SINDRI_DIR / "submodules/jormi",
@@ -45,7 +46,7 @@ PackageName = str
 ##
 
 
-@dataclass
+@dataclasses.dataclass
 class PackageStatus:
     is_valid: bool
     package_alias: AliasName
@@ -55,15 +56,15 @@ class PackageStatus:
     is_installed: bool = False
 
 
-@dataclass
+@dataclasses.dataclass
 class OutcomeSummary:
     install_self: bool | None = None
     uninstall_self: bool | None = None
-    packages_installed: list[tuple[AliasName, bool]] = field(default_factory=list)
-    packages_uninstalled: list[tuple[AliasName, bool]] = field(default_factory=list)
+    packages_installed: list[tuple[AliasName, bool]] = dataclasses.field(default_factory=list)
+    packages_uninstalled: list[tuple[AliasName, bool]] = dataclasses.field(default_factory=list)
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class CommandOutcome:
     succeeded: bool
     output: str | None
@@ -84,8 +85,7 @@ def format_package_label(
         alias_mapping = package_status.package_alias
     if package_status.is_valid:
         return alias_mapping
-    else:
-        return f"{alias_mapping}[{package_status.reason}]"
+    return f"{alias_mapping}[{package_status.reason}]"
 
 
 def format_success_and_failure(
@@ -110,13 +110,12 @@ def format_optional_outcome(
 
 
 def format_list(
-    items: Iterable[str | None],
+    items: collections.abc.Iterable[str | None],
 ) -> str:
     cleaned_items = [item for item in items if item]
     if cleaned_items:
         return ", ".join(cleaned_items)
-    else:
-        return manage_log.Symbols.EM_DASH.value
+    return manage_log.Symbols.EM_DASH.value
 
 
 def format_path(
@@ -141,7 +140,8 @@ def run_command(
     message: str | None = None,
 ) -> CommandOutcome:
     try:
-        if message: manage_log.log_task(message, show_time=True)
+        if message:
+            manage_log.log_task(message, show_time=True)
         result = manage_shell.execute_shell_command(
             command,
             working_directory=working_directory,
@@ -209,7 +209,7 @@ def get_package_status(
             package_alias=package_alias,
             package_path=package_path,
             package_name=package_name,
-            is_valid=(package_name is not None),
+            is_valid=True,
             reason=None,
         )
     except Exception:
@@ -449,7 +449,7 @@ def uninstall_package(
 ##
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Manage sindri packages.")
     parser.add_argument(
         "target_dir",
@@ -491,12 +491,13 @@ def parse_args():
 ##
 
 
+@typing.final
 class LinkPackages:
 
     def __init__(
         self,
-        user_args,
-    ):
+        user_args: argparse.Namespace,
+    ) -> None:
         self.user_args = user_args
         self.target_dir: Path | None = None
         self.aliases_to_install: list[AliasName] = []
@@ -570,7 +571,7 @@ class LinkPackages:
             for package_status in self.sindri_packages.values()
             if not package_status.is_installed
         ]
-        notes: dict[str, Any] = {
+        notes: dict[str, typing.Any] = {
             "target project": str(self.target_dir),
             "self-install": self.do_self_install,
             "self-uninstall": self.do_self_uninstall,
@@ -675,14 +676,18 @@ class LinkPackages:
 
 
 ##
-## === MAIN
+## === MAIN ROUTINE
 ##
 
 
-def main():
+def main() -> None:
     user_args = parse_args()
     LinkPackages(user_args).run()
 
+
+##
+## === ENTRY POINT
+##
 
 if __name__ == "__main__":
     main()
