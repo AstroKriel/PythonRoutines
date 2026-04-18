@@ -29,9 +29,9 @@ SINDRI_PACKAGES: dict[str, Path] = {
     "jormi": SINDRI_DIR / "submodules/jormi",
     "bifrost": SINDRI_DIR / "submodules/bifrost",
     "vegtamr": SINDRI_DIR / "submodules/vegtamr",
-    "quokka": SINDRI_DIR / "submodules/ww_quokka_sims",
-    "flash": SINDRI_DIR / "submodules/ww_flash_sims",
-    "arepo": SINDRI_DIR / "submodules/ww_arepo_sims",
+    "quokka": SINDRI_DIR / "submodules/ww-quokka-sims",
+    "flash": SINDRI_DIR / "submodules/ww-flash-sims",
+    "arepo": SINDRI_DIR / "submodules/ww-arepo-sims",
 }
 
 ##

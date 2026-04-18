@@ -10,15 +10,15 @@
 	path = submodules/vegtamr
 	url = git@github.com:AstroKriel/LineIntegralConvolution.git
 	branch = main
-[submodule "submodules/ww_flash_sims"]
-	path = submodules/ww_flash_sims
+[submodule "submodules/ww-flash-sims"]
+	path = submodules/ww-flash-sims
 	url = git@github.com:AstroKriel/WWFlashSims.git
 	branch = main
-[submodule "submodules/ww_arepo_sims"]
-	path = submodules/ww_arepo_sims
+[submodule "submodules/ww-arepo-sims"]
+	path = submodules/ww-arepo-sims
 	url = git@github.com:AstroKriel/WWArepoSims.git
 	branch = main
-[submodule "submodules/ww_quokka_sims"]
-	path = submodules/ww_quokka_sims
+[submodule "submodules/ww-quokka-sims"]
+	path = submodules/ww-quokka-sims
 	url = git@github.com:AstroKriel/WWQuokkaSims.git
 	branch = main
