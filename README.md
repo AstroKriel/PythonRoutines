@@ -18,7 +18,7 @@ Convenience shell scripts are provided for install, update, and removal, and sho
 
 After installing, run `hash -r` if commands are not immediately found in your shell.
 
-`sindri` depends on `jormi` (logging and shell utilities), installed as a non-editable path dependency. After significant `jormi` updates, run `./update_sindri_tools.sh` to reinstall.
+`sindri` depends on `jormi` (for logging and shell utilities), and uses `jormi` installed as a non-editable path dependency. After significant `jormi` updates, run `./update_sindri_tools.sh` to reinstall.
 
 ## Project layout
 
