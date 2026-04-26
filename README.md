@@ -30,9 +30,9 @@ sindri/
 │   ├── jormi/                 # utility library (logging, shell, numerics)
 │   ├── bifrost/               # data pipeline utilities
 │   ├── vegtamr/               # visualisation utilities
-│   ├── ww_quokka_sims/        # Quokka simulation interface
-│   ├── ww_flash_sims/         # FLASH simulation interface
-│   └── ww_arepo_sims/         # Arepo simulation interface
+│   ├── ww-quokka-sims/        # Quokka simulation interface
+│   ├── ww-flash-sims/         # FLASH simulation interface
+│   └── ww-arepo-sims/         # Arepo simulation interface
 ├── pyproject.toml             # package definition and tooling config
 ├── install_sindri_tools.sh
 ├── update_sindri_tools.sh
