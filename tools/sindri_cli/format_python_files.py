@@ -96,6 +96,23 @@ def collect_py_files(
     return py_paths
 
 
+class RemoveSingleArgTrailingComma(libcst.CSTTransformer):
+
+    def leave_Call(
+        self,
+        original_node: libcst.Call,
+        updated_node: libcst.Call,
+    ) -> libcst.Call:
+        if len(updated_node.args) != 1:
+            return updated_node
+        single_arg = updated_node.args[0]
+        if isinstance(single_arg.comma, libcst.MaybeSentinel):
+            return updated_node
+        return updated_node.with_changes(
+            args=(single_arg.with_changes(comma=libcst.MaybeSentinel.DEFAULT),),
+        )
+
+
 class AddTrailingCommas(libcst.CSTTransformer):
 
     def leave_FunctionDef(
@@ -165,6 +182,8 @@ class ExpandNestedSingleArgCalls(libcst.CSTTransformer):
         if not isinstance(outer_arg.value, libcst.Call):
             return updated_node
         inner_call = outer_arg.value
+        if len(inner_call.args) <= 1:
+            return updated_node
         comma = libcst.Comma(
             whitespace_after=libcst.SimpleWhitespace(
                 "",
@@ -181,6 +200,27 @@ class ExpandNestedSingleArgCalls(libcst.CSTTransformer):
             comma=comma if isinstance(outer_arg.comma, libcst.MaybeSentinel) else outer_arg.comma,
         )
         return updated_node.with_changes(args=(new_outer_arg, ))
+
+
+def apply_single_arg_trailing_comma_removal(
+    py_paths: list[Path],
+) -> None:
+    if not py_paths:
+        manage_log.log_note(text="No Python files to strip single-arg trailing commas from")
+        return
+    manage_log.log_task(
+        text=f"Removing trailing commas from single-arg calls ({len(py_paths)} files)",
+    )
+    transformer = RemoveSingleArgTrailingComma()
+    for file_path in py_paths:
+        source = file_path.read_text(encoding="utf-8")
+        new_source = libcst.parse_module(source).visit(transformer).code
+        if new_source != source:
+            _ = file_path.write_text(new_source, encoding="utf-8")
+    manage_log.log_outcome(
+        text="Completed single-arg trailing-comma removal",
+        outcome=manage_log.ActionOutcome.SUCCESS,
+    )
 
 
 def apply_fn_signature_expansion(
@@ -309,6 +349,7 @@ def format_project(
             outcome=manage_log.ActionOutcome.SKIPPED,
         )
         return 0
+    apply_single_arg_trailing_comma_removal(py_paths)
     apply_trailing_commas_to_multiline(py_paths)
     apply_fn_signature_expansion(py_paths)
     apply_nested_call_expansion(py_paths)
