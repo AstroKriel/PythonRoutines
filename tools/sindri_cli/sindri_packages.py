@@ -237,7 +237,12 @@ def update_installed_status(
         try:
             entries = json.loads(command_outcome.output)
             packages_installed = {
-                str(entry.get("name", "")).lower()
+                str(
+                    entry.get(
+                        "name",
+                        "",
+                    ),
+                ).lower()
                 for entry in entries
                 if isinstance(entry, dict)
             }

@@ -170,9 +170,11 @@ class ExpandNestedSingleArgCalls(libcst.CSTTransformer):
                 "",
             ),
         )
-        if inner_call.args and isinstance(inner_call.args[-1].comma, libcst.MaybeSentinel):
+        last_inner_arg = inner_call.args[-1] if inner_call.args else None
+        if (last_inner_arg is not None and isinstance(last_inner_arg.comma, libcst.MaybeSentinel)
+                and not isinstance(last_inner_arg.value, libcst.GeneratorExp)):
             inner_call = inner_call.with_changes(
-                args=(*inner_call.args[:-1], inner_call.args[-1].with_changes(comma=comma)),
+                args=(*inner_call.args[:-1], last_inner_arg.with_changes(comma=comma)),
             )
         new_outer_arg = outer_arg.with_changes(
             value=inner_call,
