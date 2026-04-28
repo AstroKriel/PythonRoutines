@@ -10,10 +10,14 @@ import os
 import shutil
 import sys
 import typing
+
 from pathlib import Path
 
 ## third-party
 import libcst
+
+## personal
+from jormi import ww_lists
 from jormi.ww_io import manage_log, manage_shell
 
 ##
@@ -35,25 +39,8 @@ DIRS_TO_IGNORE: tuple[str, ...] = (
 )
 
 ##
-## === HELPER FUNCTIONS
+## === FILE COLLECTION
 ##
-
-
-def ensure_styling_rules_exist() -> None:
-    if not STYLE_FILE_PATH.exists():
-        manage_log.log_error(
-            text=f"Style file `{STYLE_FILE_NAME}` not found next to this script.",
-            notes={"expected_path": str(STYLE_FILE_PATH)},
-        )
-        sys.exit(1)
-
-
-def ensure_uv_is_available() -> None:
-    ## checking for uv is fine, since uvx is a subcommand of it
-    if shutil.which("uv") is None:
-        manage_log.log_error(text="`uv` not found in PATH. Install uv first.")
-        sys.exit(1)
-    manage_log.log_outcome(text="Found `uv`", outcome=manage_log.ActionOutcome.SUCCESS)
 
 
 def should_ignore_dirname(
@@ -96,7 +83,12 @@ def collect_py_files(
     return py_paths
 
 
-class RemoveSingleArgTrailingComma(libcst.CSTTransformer):
+##
+## === TRANSFORMERS
+##
+
+
+class _RemoveSingleArgTrailingComma(libcst.CSTTransformer):
 
     def leave_Call(
         self,
@@ -109,11 +101,11 @@ class RemoveSingleArgTrailingComma(libcst.CSTTransformer):
         if isinstance(single_arg.comma, libcst.MaybeSentinel):
             return updated_node
         return updated_node.with_changes(
-            args=(single_arg.with_changes(comma=libcst.MaybeSentinel.DEFAULT),),
+            args=(single_arg.with_changes(comma=libcst.MaybeSentinel.DEFAULT), ),
         )
 
 
-class AddTrailingCommas(libcst.CSTTransformer):
+class _AddTrailingCommas(libcst.CSTTransformer):
 
     def leave_FunctionDef(
         self,
@@ -121,13 +113,13 @@ class AddTrailingCommas(libcst.CSTTransformer):
         updated_node: libcst.FunctionDef,
     ) -> libcst.FunctionDef:
         return updated_node.with_changes(
-            params=ensure_trailing_comma(
+            params=_ensure_trailing_comma(
                 updated_node.params,
             ),
         )
 
 
-def ensure_trailing_comma(
+def _ensure_trailing_comma(
     params: libcst.Parameters,
 ) -> libcst.Parameters:
     comma: libcst.Comma = libcst.Comma(
@@ -169,7 +161,29 @@ def ensure_trailing_comma(
     return params
 
 
-class ExpandNestedSingleArgCalls(libcst.CSTTransformer):
+class _ExpandKeywordArgCalls(libcst.CSTTransformer):
+
+    def leave_Call(
+        self,
+        original_node: libcst.Call,
+        updated_node: libcst.Call,
+    ) -> libcst.Call:
+        if len(updated_node.args) < 2:
+            return updated_node
+        if not all(arg.keyword is not None for arg in updated_node.args):
+            return updated_node
+        last_arg = updated_node.args[-1]
+        if not isinstance(last_arg.comma, libcst.MaybeSentinel):
+            return updated_node
+        comma = libcst.Comma(
+            whitespace_after=libcst.SimpleWhitespace(""),
+        )
+        return updated_node.with_changes(
+            args=(*updated_node.args[:-1], last_arg.with_changes(comma=comma)),
+        )
+
+
+class _ExpandNestedSingleArgCalls(libcst.CSTTransformer):
 
     def leave_Call(
         self,
@@ -202,6 +216,31 @@ class ExpandNestedSingleArgCalls(libcst.CSTTransformer):
         return updated_node.with_changes(args=(new_outer_arg, ))
 
 
+##
+## === PIPELINE STEPS
+##
+
+
+def ensure_styling_rules_exist() -> None:
+    if not STYLE_FILE_PATH.exists():
+        manage_log.log_error(
+            text=f"Style file `{STYLE_FILE_NAME}` not found next to this script.",
+            notes={"expected_path": str(STYLE_FILE_PATH)},
+        )
+        sys.exit(1)
+
+
+def ensure_uv_is_available() -> None:
+    ## checking for uv is fine, since uvx is a subcommand of it
+    if shutil.which("uv") is None:
+        manage_log.log_error(text="`uv` not found in PATH. Install uv first.")
+        sys.exit(1)
+    manage_log.log_outcome(
+        text="Found `uv`",
+        outcome=manage_log.ActionOutcome.SUCCESS,
+    )
+
+
 def apply_single_arg_trailing_comma_removal(
     py_paths: list[Path],
 ) -> None:
@@ -211,7 +250,7 @@ def apply_single_arg_trailing_comma_removal(
     manage_log.log_task(
         text=f"Removing trailing commas from single-arg calls ({len(py_paths)} files)",
     )
-    transformer = RemoveSingleArgTrailingComma()
+    transformer = _RemoveSingleArgTrailingComma()
     for file_path in py_paths:
         source = file_path.read_text(encoding="utf-8")
         new_source = libcst.parse_module(source).visit(transformer).code
@@ -232,7 +271,7 @@ def apply_fn_signature_expansion(
     manage_log.log_task(
         text=f"Expanding function signatures to multi-line ({len(py_paths)} files)",
     )
-    transformer = AddTrailingCommas()
+    transformer = _AddTrailingCommas()
     for file_path in py_paths:
         source = file_path.read_text(encoding="utf-8")
         new_source = libcst.parse_module(source).visit(transformer).code
@@ -240,6 +279,27 @@ def apply_fn_signature_expansion(
             _ = file_path.write_text(new_source, encoding="utf-8")
     manage_log.log_outcome(
         text="Completed function signature expansion",
+        outcome=manage_log.ActionOutcome.SUCCESS,
+    )
+
+
+def apply_keyword_arg_call_expansion(
+    py_paths: list[Path],
+) -> None:
+    if not py_paths:
+        manage_log.log_note(text="No Python files to expand keyword-arg calls")
+        return
+    manage_log.log_task(
+        text=f"Expanding multi-keyword-arg calls to multi-line ({len(py_paths)} files)",
+    )
+    transformer = _ExpandKeywordArgCalls()
+    for file_path in py_paths:
+        source = file_path.read_text(encoding="utf-8")
+        new_source = libcst.parse_module(source).visit(transformer).code
+        if new_source != source:
+            _ = file_path.write_text(new_source, encoding="utf-8")
+    manage_log.log_outcome(
+        text="Completed keyword-arg call expansion",
         outcome=manage_log.ActionOutcome.SUCCESS,
     )
 
@@ -253,7 +313,7 @@ def apply_nested_call_expansion(
     manage_log.log_task(
         text=f"Expanding single-arg nested calls to multi-line ({len(py_paths)} files)",
     )
-    transformer = ExpandNestedSingleArgCalls()
+    transformer = _ExpandNestedSingleArgCalls()
     for file_path in py_paths:
         source = file_path.read_text(encoding="utf-8")
         new_source = libcst.parse_module(source).visit(transformer).code
@@ -315,7 +375,10 @@ def apply_yapf_style(
 def format_project(
     paths: list[str] | None = None,
 ) -> int:
-    manage_log.log_task(text="Formatting Python files...", show_time=True)
+    manage_log.log_task(
+        text="Formatting Python files...",
+        show_time=True,
+    )
     ensure_styling_rules_exist()
     ensure_uv_is_available()
     manage_log.log_note(text=f"Using style rules from: {STYLE_FILE_PATH}")
@@ -324,12 +387,7 @@ def format_project(
     else:
         resolved_targets = [Path(target).resolve() for target in paths]
     manage_log.log_note(
-        text="Scanning target roots: " + ", ".join(
-            map(
-                str,
-                resolved_targets,
-            ),
-        ),
+        text="Scanning target roots: " + ww_lists.as_string(elems=resolved_targets),
     )
     py_paths = collect_py_files(resolved_targets)
     manage_log.log_note(
@@ -337,22 +395,22 @@ def format_project(
     )
     if not py_paths:
         manage_log.log_note(
-            text="No Python files were found under: " + ", ".join(
-                map(
-                    str,
-                    resolved_targets,
-                ),
-            ),
+            text="No Python files were found under: " + ww_lists.as_string(elems=resolved_targets),
         )
         manage_log.log_outcome(
             text="Nothing to do",
             outcome=manage_log.ActionOutcome.SKIPPED,
         )
         return 0
+    ## must precede `add-trailing-comma`: it does not remove single-arg trailing commas.
     apply_single_arg_trailing_comma_removal(py_paths)
+    ## must precede keyword-arg expansion: it strips inline trailing commas, which would undo step 5.
     apply_trailing_commas_to_multiline(py_paths)
     apply_fn_signature_expansion(py_paths)
     apply_nested_call_expansion(py_paths)
+    ## must follow `add-trailing-comma` (step 2) so the inline commas it adds survive to YAPF.
+    apply_keyword_arg_call_expansion(py_paths)
+    ## expands every trailing-comma construct to multi-line; must run last.
     apply_yapf_style(py_paths)
     manage_log.log_outcome(
         text="Formatting finished",
