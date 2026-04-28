@@ -141,7 +141,10 @@ def run_command(
 ) -> CommandOutcome:
     try:
         if message:
-            manage_log.log_task(message, show_time=True)
+            manage_log.log_task(
+                text=message,
+                show_time=True,
+            )
         result = manage_shell.execute_shell_command(
             command,
             working_directory=working_directory,
@@ -156,7 +159,7 @@ def run_command(
         )
     except Exception as exception:
         manage_log.log_outcome(
-            f"Command failed: {command}\n{exception}",
+            text=f"Command failed: {command}\n{exception}",
             outcome=manage_log.ActionOutcome.FAILURE,
         )
         return CommandOutcome(
@@ -174,8 +177,8 @@ def read_package_name(
     target_dir: Path,
 ) -> str:
     pyproject_path = target_dir / "pyproject.toml"
-    with pyproject_path.open("rb") as fp:
-        pyproject = tomllib.load(fp)
+    with pyproject_path.open("rb") as file_pointer:
+        pyproject = tomllib.load(file_pointer)
     package_name = pyproject.get("project", {}).get("name")
     if not package_name or not isinstance(package_name, str):
         raise ValueError(f"Could not determine package name from: {format_path(pyproject_path)}")
@@ -522,14 +525,17 @@ class LinkPackages:
         pyproject_path = target_dir / "pyproject.toml"
         if not pyproject_path.exists():
             manage_log.log_outcome(
-                f"No pyproject.toml found under: {format_path(target_dir)}",
+                text=f"No pyproject.toml found under: {format_path(target_dir)}",
                 outcome=manage_log.ActionOutcome.FAILURE,
             )
             sys.exit(1)
         try:
             ensure_package_root(target_dir)
         except Exception as exception:
-            manage_log.log_outcome(str(exception), outcome=manage_log.ActionOutcome.FAILURE)
+            manage_log.log_outcome(
+                text=str(exception),
+                outcome=manage_log.ActionOutcome.FAILURE,
+            )
             sys.exit(1)
         self.target_dir = target_dir
 
@@ -594,7 +600,10 @@ class LinkPackages:
         )
         user_response = input("Proceed? [y/N]: ").strip().lower()
         if user_response not in ("y", "yes"):
-            manage_log.log_outcome("Aborted by user.", outcome=manage_log.ActionOutcome.SKIPPED)
+            manage_log.log_outcome(
+                text="Aborted by user.",
+                outcome=manage_log.ActionOutcome.SKIPPED,
+            )
             sys.exit(1)
         manage_log.log_empty_lines()
 
