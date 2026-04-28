@@ -1,4 +1,4 @@
-# sindri
+# sindri (Sindri; the Dwarven Brother at the Forge)
 
 `sindri` is [Asgard](https://github.com/AstroKriel/Asgard)'s Python dev layer. It's the home of my Python packages (see [Project layout](#project-layout)), and provides two command line tools to help with development. You can install and manage these tools using the convenient scripts in [Setup](#setup), which make these tools available system-wide, independent of any project's virtual environment; pass `-h` to either tool for usage details.
 
