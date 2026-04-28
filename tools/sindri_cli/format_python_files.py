@@ -168,9 +168,8 @@ class _ExpandKeywordArgCalls(libcst.CSTTransformer):
         original_node: libcst.Call,
         updated_node: libcst.Call,
     ) -> libcst.Call:
-        if len(updated_node.args) < 2:
-            return updated_node
-        if not all(arg.keyword is not None for arg in updated_node.args):
+        keyword_arg_count = sum(1 for arg in updated_node.args if arg.keyword is not None)
+        if keyword_arg_count < 2:
             return updated_node
         last_arg = updated_node.args[-1]
         if not isinstance(last_arg.comma, libcst.MaybeSentinel):
