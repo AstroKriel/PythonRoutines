@@ -8,33 +8,38 @@
 
 ## Setup
 
-Convenience shell scripts are provided for install, update, and removal, and should be run from the `sindri` root (`Asgard/sindri/`):
+Convenience shell scripts are provided under `tools/` for install, update, and removal, and should be run from the `sindri` root (`Asgard/sindri/`):
 
 ```bash
-./install_sindri_tools.sh    # first-time install
-./update_sindri_tools.sh     # update tools and integrate changes made
-./uninstall_sindri_tools.sh  # remove tools
+./tools/install.sh    # first-time install
+./tools/update.sh     # update tools and integrate changes made
+./tools/uninstall.sh  # remove tools
 ```
 
-After installing, run `hash -r` if commands are not immediately found in your shell.
+After installing, run
+```bash
+hash -r
+```
+if commands are not immediately found in your shell.
 
-`sindri` depends on `jormi` (for logging and shell utilities), and uses `jormi` installed as a non-editable path dependency. After significant `jormi` updates, run `./update_sindri_tools.sh` to reinstall.
+> Note: `sindri` depends on `jormi` (for logging and shell utilities), and uses `jormi` installed as a non-editable path dependency. After significant `jormi` changes, update the tools.
 
 ## Project layout
 
 ```
 sindri/
 ├── tools/
-│   └── sindri_cli/            # source for both command line tools
+│   ├── install.sh       # installs the sindri CLI tools via uv
+│   ├── update.sh        # reinstalls the sindri CLI tools
+│   ├── uninstall.sh     # removes the sindri CLI tools
+│   └── cli/             # source for both Python command line tools
 ├── submodules/
-│   ├── jormi/                 # utility library (logging, shell, numerics)
-│   ├── bifrost/               # data pipeline utilities
-│   ├── vegtamr/               # visualisation utilities
-│   ├── ww-quokka-sims/        # QUOKKA simulation interface
-│   ├── ww-flash-sims/         # FLASH simulation interface
-│   └── ww-arepo-sims/         # AREPO simulation interface
-├── pyproject.toml             # package definition and tooling config
-├── install_sindri_tools.sh
-├── update_sindri_tools.sh
-└── uninstall_sindri_tools.sh
+│   ├── jormi/           # utility library (logging, shell, numerics)
+│   ├── bifrost/         # data pipeline utilities
+│   ├── vegtamr/         # visualisation utilities
+│   ├── ww-quokka-sims/  # QUOKKA simulation interface
+│   ├── ww-flash-sims/   # FLASH simulation interface
+│   └── ww-arepo-sims/   # AREPO simulation interface
+├── pyproject.toml       # package definition and tooling config
+└── uv.lock
 ```
