@@ -460,7 +460,7 @@ def uninstall_package(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Manage sindri packages.")
     parser.add_argument(
-        "target_dir",
+        "--target-dir",
         type=Path,
         help="Target package directory (must contain pyproject.toml and .venv)",
     )
