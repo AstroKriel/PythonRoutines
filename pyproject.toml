@@ -38,13 +38,13 @@ venv = ".venv"
 reportMissingImports = true
 
 ## --- rules to suppress
-reportMissingTypeStubs = "none"          # libcst and jormi ship no stubs; not actionable
-reportUnknownVariableType = "none"       # cascade from untyped deps (jormi); not actionable
-reportUnknownMemberType = "none"         # cascade from untyped deps (jormi); not actionable
-reportUnknownParameterType = "none"      # cascade from untyped deps (libcst); not actionable
-reportUnknownArgumentType = "none"       # cascade from untyped deps (tomllib dicts); not actionable
-reportUnusedParameter = "none"           # override methods must match base signature even if arg unused
-reportImplicitOverride = "none"          # @override requires Python 3.12; project targets 3.11
-reportAny = "none"                       # cascade from tomllib returning untyped dicts; not actionable
-reportUnusedCallResult = "none"          # argparse.add_argument returns Action; never used by convention
-reportImplicitStringConcatenation = "none" # implicit string concat used intentionally in long strings
+reportMissingTypeStubs = "none"  # libcst and jormi ship no stubs; not actionable
+reportUnknownVariableType = "none"  # cascade from untyped deps (jormi); not actionable
+reportUnknownMemberType = "none"  # cascade from untyped deps (jormi); not actionable
+reportUnknownParameterType = "none"  # cascade from untyped deps (libcst); not actionable
+reportUnknownArgumentType = "none"  # cascade from untyped deps (tomllib dicts); not actionable
+reportUnusedParameter = "none"  # override methods must match base signature even if arg unused
+reportImplicitOverride = "none"  # @override requires Python 3.12; project targets 3.11
+reportAny = "none"  # cascade from tomllib returning untyped dicts; not actionable
+reportUnusedCallResult = "none"  # argparse.add_argument returns Action; never used by convention
+reportImplicitStringConcatenation = "none"  # implicit string concat used intentionally in long strings
