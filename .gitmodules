@@ -22,3 +22,7 @@
 	path = submodules/ww-quokka-sims
 	url = git@github.com:AstroKriel/WWQuokkaSims.git
 	branch = main
+[submodule "submodules/ww-pencil-sims"]
+	path = submodules/ww-pencil-sims
+	url = git@github.com:AstroKriel/WWPencilSims.git
+	branch = main

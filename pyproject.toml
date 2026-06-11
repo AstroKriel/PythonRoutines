@@ -31,8 +31,9 @@ allow-direct-references = true
 
 [tool.pyright]
 include = ["tools/cli"]
-venvPath = "."
-venv = ".venv"
+## submodules are independent packages with their own pyright configs; exclude them so
+## pyright does not claim their files under this project when opening from a parent directory
+exclude = ["submodules"]
 
 ## --- rules to enforce
 reportMissingImports = true
