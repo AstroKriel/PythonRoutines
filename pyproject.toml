@@ -29,7 +29,10 @@ packages = ["tools/cli"]
 [tool.hatch.metadata]
 allow-direct-references = true
 
-[tool.pyright]
+[dependency-groups]
+dev = ["basedpyright>=1.0"]
+
+[tool.basedpyright]
 include = ["tools/cli"]
 ## submodules are independent packages with their own pyright configs; exclude them so
 ## pyright does not claim their files under this project when opening from a parent directory
@@ -46,6 +49,7 @@ reportUnknownParameterType = "none"  # cascade from untyped deps (libcst); not a
 reportUnknownArgumentType = "none"  # cascade from untyped deps (tomllib dicts); not actionable
 reportUnusedParameter = "none"  # override methods must match base signature even if arg unused
 reportImplicitOverride = "none"  # @override requires Python 3.12; project targets 3.11
+reportExplicitAny = "none"
 reportAny = "none"  # cascade from tomllib returning untyped dicts; not actionable
 reportUnusedCallResult = "none"  # argparse.add_argument returns Action; never used by convention
 reportImplicitStringConcatenation = "none"  # implicit string concat used intentionally in long strings
